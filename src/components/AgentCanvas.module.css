@@ -1,0 +1,74 @@
+.canvas {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 100%;
+  padding: 72px 56px 120px;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+.hero {
+  padding-top: 10vh;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(72px, 9vw, 140px);
+  line-height: 0.92;
+  letter-spacing: -0.035em;
+  margin: 0 0 32px;
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.title span {
+  background: linear-gradient(180deg, #ffffff 0%, #8c8c93 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.title span:nth-child(2) {
+  background: linear-gradient(180deg, #7de3f0 0%, #00ffa3 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.sub {
+  font-family: var(--font-body);
+  font-size: 22px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  margin: 0 0 56px;
+  letter-spacing: -0.005em;
+}
+
+.poweredBy {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 20px;
+  /* column-reverse 使新图从顶部追加（newest on top） */
+}
+
+.stack > *:first-child {
+  /* SummaryIsland 在 DOM 最后，视觉在顶 */
+  order: 2;
+}
+
+@media (max-width: 1024px) {
+  .canvas {
+    padding: 48px 20px 120px;
+  }
+}

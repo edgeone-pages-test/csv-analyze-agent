@@ -1,0 +1,161 @@
+.wrap {
+  position: relative;
+  width: 100%;
+  background: rgba(14, 14, 17, 0.55);
+  border-radius: var(--radius-lg);
+  padding: 22px 24px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+
+.legend {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.legendLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  color: var(--text-secondary);
+}
+
+.legendMeta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.table {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 180px 1fr 90px;
+  gap: 14px;
+  align-items: center;
+  animation: row-in 420ms var(--ease-overshoot) both;
+}
+
+.name {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bins {
+  display: flex;
+  gap: 2px;
+  height: 14px;
+}
+
+.bin {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  background: var(--bg-raised-3);
+  border-radius: 1.5px;
+  /* v: 0..1 归一值；亮度 = 0.35 + 0.65 * v */
+  opacity: calc(0.35 + 0.65 * var(--v, 0));
+  transform-origin: bottom;
+  transform: scaleY(calc(0.5 + 0.5 * var(--v, 0)));
+  transition:
+    opacity 400ms var(--ease-smooth),
+    transform 400ms var(--ease-smooth);
+}
+
+/* 类型着色 */
+.numeric {
+  background: color-mix(in srgb, var(--accent-emerald) 65%, transparent);
+}
+.datetime {
+  background: color-mix(in srgb, var(--accent-cyan) 65%, transparent);
+}
+.categorical,
+.boolean {
+  background: color-mix(in srgb, var(--accent-blue) 65%, transparent);
+}
+.id {
+  background: rgba(101, 101, 105, 0.5);
+}
+.text {
+  background: rgba(58, 58, 66, 0.55);
+}
+
+.chip {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  padding: 2px 8px;
+  border-radius: 3px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+}
+
+.chip_numeric {
+  color: var(--accent-emerald);
+  background: rgba(0, 255, 163, 0.08);
+}
+.chip_datetime {
+  color: var(--accent-cyan);
+  background: rgba(125, 227, 240, 0.08);
+}
+.chip_categorical,
+.chip_boolean {
+  color: var(--accent-blue);
+  background: rgba(142, 166, 255, 0.08);
+}
+.chip_id {
+  color: var(--text-muted);
+}
+.chip_text {
+  color: var(--text-muted);
+}
+
+.sweep {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -8px;
+  height: 32px;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(0, 255, 163, 0.18) 48%,
+    transparent 100%
+  );
+  filter: blur(1px);
+  animation: sweep 2.4s linear infinite;
+}
+
+@keyframes sweep {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(420px);
+  }
+}
+
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

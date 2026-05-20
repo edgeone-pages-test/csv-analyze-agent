@@ -1,0 +1,151 @@
+/* ─────────────────────────────────────────
+ * theme.css — CSS 变量 + 全局 reset + 背景效果
+ * 详见 plan/design.md §13
+ * ───────────────────────────────────────── */
+@import "tailwindcss";
+
+:root {
+  /* ─── 颜色 ─── */
+  --bg-void: #060608;
+  --bg-raised-1: #0e0e11;
+  --bg-raised-2: #1a1a1f;
+  --bg-raised-3: #2a2a32;
+
+  --text-primary: #f5f5f7;
+  --text-secondary: #a3a3ad;
+  --text-muted: #656569;
+
+  --accent-emerald: #00ffa3;
+  --accent-amber: #ffb547;
+  --accent-coral: #ff6b6b;
+  --accent-cyan: #7de3f0;
+  --accent-blue: #8ea6ff;
+
+  --glow-emerald: 0 0 0 1px rgba(0, 255, 163, 0.22),
+    0 0 32px rgba(0, 255, 163, 0.18);
+  --glow-amber: 0 0 0 1px rgba(255, 181, 71, 0.22),
+    0 0 32px rgba(255, 181, 71, 0.18);
+
+  /* ─── 字体 ─── */
+  --font-display: "Clash Display", "Neue Machina", "Space Grotesk", sans-serif;
+  --font-body: "Satoshi", -apple-system, BlinkMacSystemFont, "Helvetica Neue",
+    sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+
+  /* ─── 尺寸 ─── */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 20px;
+
+  /* ─── 曲线 ─── */
+  --ease-overshoot: cubic-bezier(0.22, 0.68, 0.32, 1.18);
+  --ease-hero: cubic-bezier(0.76, 0, 0.24, 1);
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background: var(--bg-void);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-feature-settings: "ss01", "ss02", "cv11", "tnum";
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font-family: inherit;
+  font-feature-settings: inherit;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* 全局噪点 */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: url("/noise.svg");
+  background-repeat: repeat;
+  opacity: 0.035;
+  pointer-events: none;
+  z-index: 9999;
+  mix-blend-mode: overlay;
+}
+
+/* CRT 扫描线（仅 agent 活动时） */
+body.agent-active::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    180deg,
+    transparent 0 2px,
+    rgba(255, 255, 255, 0.015) 2px 3px
+  );
+  pointer-events: none;
+  z-index: 9998;
+}
+
+/* Scrollbar (subtle) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* 选中态 */
+::selection {
+  background: rgba(0, 255, 163, 0.28);
+  color: var(--text-primary);
+}
+
+/* 全局 focus */
+:focus-visible {
+  outline: 2px solid var(--accent-emerald);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
