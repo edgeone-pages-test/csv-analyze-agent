@@ -247,8 +247,6 @@ export async function persistAnalysisArtifacts(
         taskId: session.id,
       },
     });
-
-    console.log(`[persist] artifacts persisted for task=${session.id} (${charts.length} charts, ${Object.keys(svgs).length} svgs, reportHtml=${reportHtml.length} bytes)`);
   } catch (err) {
     console.warn(
       "[history] persistAnalysisArtifacts failed:",

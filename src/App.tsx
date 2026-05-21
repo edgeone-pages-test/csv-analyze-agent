@@ -19,7 +19,6 @@ import {
   fetchSession,
   rerunInsights,
   cancelAnalyze,
-  deleteSession,
   fetchAnalysisHistory,
 } from "./lib/api";
 import type { HistoryRecordWithRestore } from "./lib/api";
@@ -34,6 +33,7 @@ import { AgentCanvas } from "./components/AgentCanvas";
 import { StatusBar } from "./components/StatusBar";
 import { ToolDrawer } from "./components/ToolDrawer";
 import { HistoryPanel } from "./components/HistoryPanel";
+import { ReportView } from "./components/ReportView";
 import type { ToolInvocation } from "./hooks/useAgentStream";
 
 // ─── Conversation ID ────────────────────────────────────────
@@ -63,6 +63,21 @@ function getTaskIdFromUrl(): string | null {
   return new URL(window.location.href).searchParams.get("task");
 }
 
+function getReportIdFromUrl(): string | null {
+  return new URL(window.location.href).searchParams.get("report");
+}
+
+function setReportIdInUrl(taskId: string | null) {
+  const url = new URL(window.location.href);
+  if (taskId) {
+    url.searchParams.set("report", taskId);
+    url.searchParams.delete("task");
+  } else {
+    url.searchParams.delete("report");
+  }
+  window.history.replaceState({}, "", url.toString());
+}
+
 // ─── App ────────────────────────────────────────────────────
 
 export default function App() {
@@ -78,11 +93,17 @@ export default function App() {
   const lastOptsRef = useRef<{ chartsOnly: boolean; demoMode?: boolean } | null>(null);
   const [rerunning, setRerunning] = useState<boolean>(false);
 
+  // ─── Report view state ─────────────────────────────────
+  const [reportTaskId, setReportTaskId] = useState<string | null>(
+    () => getReportIdFromUrl(),
+  );
+
   // ─── Conversation ID ────────────────────────────────────
   const conversationIdRef = useRef<string>(getOrCreateConversationId());
 
   // ─── History state ──────────────────────────────────────
   const [historyRecords, setHistoryRecords] = useState<HistoryRecordWithRestore[]>([]);
+  const [historyLoading, setHistoryLoading] = useState<boolean>(true);
 
   const active =
     state.agentStatus.chart === "running" ||
@@ -100,7 +121,10 @@ export default function App() {
   }, [state.agentStatus.insight]);
 
   useEffect(() => {
-    fetchAnalysisHistory(conversationIdRef.current).then(setHistoryRecords);
+    setHistoryLoading(true);
+    fetchAnalysisHistory(conversationIdRef.current)
+      .then(setHistoryRecords)
+      .finally(() => setHistoryLoading(false));
   }, []);
 
   // 启动时：若 URL 里带了 task=xxx，尝试从后端拉快照恢复
@@ -162,15 +186,12 @@ export default function App() {
   );
 
   const handleReset = useCallback(() => {
-    const tid = state.taskId;
     setTaskIdInUrl(null);
     reset();
-    if (tid) {
-      deleteSession(tid, conversationIdRef.current)
-        .then(() => fetchAnalysisHistory(conversationIdRef.current))
-        .then(setHistoryRecords);
-    }
-  }, [reset, state.taskId]);
+    // 不删除 session——它会自动过期（24h TTL）。
+    // 这样历史记录能通过 live session fallback 正确加载报告。
+    fetchAnalysisHistory(conversationIdRef.current).then(setHistoryRecords);
+  }, [reset]);
 
   const handleRetry = useCallback(async () => {
     if (!state.taskId) return;
@@ -207,14 +228,27 @@ export default function App() {
 
   const handleOpenHistory = useCallback(
     async (record: HistoryRecordWithRestore) => {
-      if (!record.restorable) {
-        // 不可恢复——只展示 toast 或忽略
+      if (!record.restorable) return;
+
+      // done/deleted 状态 → 打开报告视图（从 store 或 live session 加载）
+      if (record.status === "done" || record.status === "deleted") {
+        setReportTaskId(record.taskId);
+        setReportIdInUrl(record.taskId);
         return;
       }
 
+      // running/uploaded → 先尝试从 live session 获取快照
       const snap = await fetchSession(record.taskId, conversationIdRef.current);
       if (!snap) return;
 
+      // 如果 live session 实际已完成，直接打开报告视图
+      if (snap.status === "done") {
+        setReportTaskId(record.taskId);
+        setReportIdInUrl(record.taskId);
+        return;
+      }
+
+      // 仍在运行中，恢复实时会话
       restore(snap);
       setTaskIdInUrl(record.taskId);
 
@@ -262,6 +296,20 @@ export default function App() {
           <span>RESTORING SESSION...</span>
         </main>
       </>
+    );
+  }
+
+  // 报告视图（从历史记录打开）
+  if (reportTaskId) {
+    return (
+      <ReportView
+        taskId={reportTaskId}
+        conversationId={conversationIdRef.current}
+        onBack={() => {
+          setReportTaskId(null);
+          setReportIdInUrl(null);
+        }}
+      />
     );
   }
 
@@ -318,6 +366,7 @@ export default function App() {
 
               <HistoryPanel
                 records={historyRecords}
+                loading={historyLoading}
                 onSelect={handleOpenHistory}
                 onClear={handleClearHistory}
               />

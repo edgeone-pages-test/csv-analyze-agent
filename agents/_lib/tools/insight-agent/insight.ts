@@ -6,7 +6,7 @@ import { z } from "zod";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { TaskContext, Insight } from "../../types.js";
-import { textResult, errorResult } from "../shared/result.js";
+import { textResult, errorResult } from "../shared/helpers.js";
 
 export const saveInsight = (ctx: TaskContext) =>
   tool(

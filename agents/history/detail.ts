@@ -4,7 +4,7 @@
  * 优先从 context.store 读取；如果 store 中没有，尝试从 live session 实时构建。
  */
 import { jsonResponse, errorResponse, getRequestBody } from "../_lib/handlers.js";
-import { getSession } from "../_lib/session.js";
+import { getSession, type Session } from "../_lib/session.js";
 import {
   APP_NAME,
   ARTIFACTS_KIND,
@@ -86,7 +86,7 @@ export async function onRequest(context: any) {
  * 从 live session 的磁盘文件实时构建 artifacts（无需 store）
  */
 async function buildArtifactsFromSession(
-  session: { id: string; csvName: string; outDir: string; profile: any; events: any[]; createdAt: number },
+  session: Session,
 ): Promise<AnalysisArtifacts | null> {
   const events = session.events ?? [];
 

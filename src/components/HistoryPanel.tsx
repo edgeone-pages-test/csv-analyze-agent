@@ -10,6 +10,7 @@ import css from "./HistoryPanel.module.css";
 
 interface HistoryPanelProps {
   records: HistoryRecordWithRestore[];
+  loading?: boolean;
   onSelect: (record: HistoryRecordWithRestore) => void;
   onClear: () => void;
 }
@@ -26,21 +27,28 @@ function relativeTime(ts: number): string {
   return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
-export function HistoryPanel({ records, onSelect, onClear }: HistoryPanelProps) {
-  if (records.length === 0) return null;
+export function HistoryPanel({ records, loading, onSelect, onClear }: HistoryPanelProps) {
+  if (!loading && records.length === 0) return null;
 
   return (
     <div className={css.wrap}>
       <div className={css.header}>
         <span className={css.label}>Recent Analyses</span>
         <span className={css.rule} aria-hidden />
-        <button className={css.clearLink} onClick={onClear}>
-          clear
-        </button>
+        {!loading && records.length > 0 && (
+          <button className={css.clearLink} onClick={onClear}>
+            clear
+          </button>
+        )}
       </div>
 
-      <div className={css.grid}>
-        {records.map((r) => (
+      {loading && (
+        <div className={css.loading}>loading history...</div>
+      )}
+
+      {!loading && (
+        <div className={css.grid}>
+          {records.map((r) => (
           <button
             key={`${r.taskId}-${r.updatedAt}`}
             type="button"
@@ -87,7 +95,8 @@ export function HistoryPanel({ records, onSelect, onClear }: HistoryPanelProps) 
             )}
           </button>
         ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

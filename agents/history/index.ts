@@ -73,7 +73,11 @@ export async function onRequest(context: any) {
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .map((record) => ({
       ...record,
-      restorable: Boolean(getSession(record.taskId)),
+      // done/deleted 状态可从 store 加载制品；running/uploaded 需要 live session
+      restorable:
+        record.status === "done" ||
+        record.status === "deleted" ||
+        Boolean(getSession(record.taskId)),
     }));
 
   return jsonResponse({ conversation_id: conversationId, records });

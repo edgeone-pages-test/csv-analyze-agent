@@ -6,7 +6,7 @@
 import { getSession, destroySession, sanitizeProfile, dispatch } from "../_lib/session.js";
 import { jsonResponse, errorResponse, getAndTouchSession, getRequestBody } from "../_lib/handlers.js";
 import { analyze } from "../_lib/analyze.js";
-import { appendAnalysisHistory, buildDonePatch, buildErrorPatch } from "../_lib/history.js";
+import { appendAnalysisHistory, buildDonePatch, buildErrorPatch, persistAnalysisArtifacts } from "../_lib/history.js";
 
 type Action = "get" | "start" | "cancel" | "delete";
 
@@ -80,9 +80,17 @@ async function handleStart(context: any, taskId: string, body: any): Promise<Res
     prewarmedRows: s.rows,
     signal: s.abort.signal,
   })
-    .then(() => {
+    .then(async () => {
       s.status = "done";
-      void appendAnalysisHistory(context, s, buildDonePatch(s, Date.now() - t0));
+      const elapsed = Date.now() - t0;
+      const patch = buildDonePatch(s, elapsed);
+      // 尝试写入（context 可能在响应后失效，此处仅乐观尝试）
+      try {
+        await appendAnalysisHistory(context, s, patch);
+        await persistAnalysisArtifacts(context, s, patch.cost ?? { total: 0 }, elapsed);
+      } catch {
+        // 若 context 已失效，handleDelete 会在下次请求中补写
+      }
     })
     .catch((err) => {
       s.status = "error";
@@ -120,6 +128,16 @@ async function handleDelete(context: any, taskId: string): Promise<Response> {
   // Carry forward summary fields (charts/insights/cost/reports) so the
   // deleted snapshot still shows what was accomplished before deletion.
   const summary = buildDonePatch(s, 0);
+
+  // 在销毁 session 前，确保完整制品已持久化到 store
+  // （此处有有效的 request context，不同于 .then() 后台回调）
+  if (s.status === "done") {
+    const doneEvt = s.events.find((e) => e.type === "done");
+    const cost = doneEvt?.type === "done" ? doneEvt.cost : { total: 0 };
+    const durationMs = doneEvt?.type === "done" ? doneEvt.durationMs : 0;
+    await persistAnalysisArtifacts(context, s, cost, durationMs);
+  }
+
   await appendAnalysisHistory(context, s, { ...summary, status: "deleted" });
   await destroySession(s);
   return jsonResponse({ ok: true, existed: true });

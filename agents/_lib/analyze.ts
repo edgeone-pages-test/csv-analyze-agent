@@ -14,18 +14,14 @@ import type {
 import type { AgentEvent, AgentRole, ToolState } from "./events.js";
 import { CHART_AGENT_PROMPT, CHART_AGENT_PROMPT_DEMO, INSIGHT_AGENT_PROMPT, INSIGHT_AGENT_PROMPT_DEMO } from "./system-prompt.js";
 import { resolveModelName, collectGatewayEnv } from "./model.js";
-import { logProgress } from "./tools/shared/progress.js";
 import {
-  profileCsv,
-  sampleRows,
+  inspectCsv,
   getColumnValues,
   computeCorrelation,
-  renderChart,
-  saveChartMeta,
+  createChart,
 } from "./tools/chart-agent/index.js";
 import {
-  readProfile,
-  readChartMeta,
+  readContext,
   readColumnStats,
   readCorrelation,
   saveInsight,
@@ -185,7 +181,7 @@ function buildChartAgentPrompt(ctx: TaskContext): string {
   const p = ctx.cache.profile;
   if (!p) {
     // 无预热 profile（极少见），降级为原始方式
-    return `请为这份 CSV 生成 3–6 张图表：${ctx.csvPath}。首先调用 profile_csv。`;
+    return `请为这份 CSV 生成 3–6 张图表：${ctx.csvPath}。首先调用 inspect_csv。`;
   }
 
   const colSummary = p.columns
@@ -207,8 +203,8 @@ function buildChartAgentPrompt(ctx: TaskContext): string {
 
   const chartTarget = ctx.demoMode ? "恰好 3 张" : "3–6 张有信息量的";
   const demoSuffix = ctx.demoMode
-    ? "\n\n**不要调用 profile_csv 和 sample_rows**——以上 profile 已足够。严格生成 3 张图，不要多。"
-    : "\n你仍可调用 profile_csv 获取完整统计（含 quantiles/topValues），或调用 sample_rows 查看实际数据样本。";
+    ? "\n\n**不要调用 inspect_csv**——以上 profile 已足够。严格生成 3 张图，不要多。"
+    : "\n你仍可调用 inspect_csv 获取完整统计（含 quantiles/topValues）和实际数据样本。";
 
   return `CSV 文件：${path.basename(ctx.csvPath)}
 行数：${p.rows}${p.sampledRows < p.rows ? `（已抽样 ${p.sampledRows} 行）` : ""}
@@ -227,13 +223,10 @@ async function runChartAgent(
     name: "chart-agent",
     version: "1.0.0",
     tools: [
-      profileCsv(ctx),
-      sampleRows(ctx),
+      inspectCsv(ctx),
       getColumnValues(ctx),
       computeCorrelation(ctx),
-      renderChart(ctx),
-      saveChartMeta(ctx),
-      logProgress(ctx, "chart"),
+      createChart(ctx),
     ],
   });
 
@@ -245,13 +238,10 @@ async function runChartAgent(
     mcp,
     mcpName: "chart-agent",
     toolNames: [
-      "profile_csv",
-      "sample_rows",
+      "inspect_csv",
       "get_column_values",
       "compute_correlation",
-      "render_chart",
-      "save_chart_meta",
-      "log_progress",
+      "create_chart",
     ],
     systemPrompt: demo ? CHART_AGENT_PROMPT_DEMO : CHART_AGENT_PROMPT,
     prompt: buildChartAgentPrompt(ctx),
@@ -274,12 +264,10 @@ async function runInsightAgent(
     name: "insight-agent",
     version: "1.0.0",
     tools: [
-      readProfile(ctx),
-      readChartMeta(ctx),
+      readContext(ctx),
       readColumnStats(ctx),
       readCorrelation(ctx),
       saveInsight(ctx),
-      logProgress(ctx, "insight"),
     ],
   });
 
@@ -291,17 +279,15 @@ async function runInsightAgent(
     mcp,
     mcpName: "insight-agent",
     toolNames: [
-      "read_profile",
-      "read_chart_meta",
+      "read_context",
       "read_column_stats",
       "read_correlation",
       "save_insight",
-      "log_progress",
     ],
     systemPrompt: demo ? INSIGHT_AGENT_PROMPT_DEMO : INSIGHT_AGENT_PROMPT,
     prompt: demo
-      ? "请为每张图写 1–2 句洞察，再写 2–3 句总结。首先调用 read_profile。"
-      : "请根据前一步生成的图表和数据摘要，为每张图写洞察并给出总体结论。首先调用 read_profile。",
+      ? "请为每张图写 1–2 句洞察，再写 2–3 句总结。首先调用 read_context。"
+      : "请根据前一步生成的图表和数据摘要，为每张图写洞察并给出总体结论。首先调用 read_context。",
     model,
     maxTurns: opts.maxTurns ?? (demo ? 8 : 15),
     maxBudgetUsd: opts.maxBudgetUsd ?? (demo ? 0.04 : 0.2),

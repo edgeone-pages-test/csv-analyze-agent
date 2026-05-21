@@ -11,14 +11,20 @@ import styles from "./ChartCard.module.css";
 export interface ChartCardProps {
   chart: ChartMeta;
   index: number;
+  /** 直接传入 SVG 字符串（历史报告模式），跳过网络请求 */
+  svgContent?: string;
   children?: React.ReactNode;
 }
 
-export function ChartCard({ chart, index, children }: ChartCardProps) {
+export function ChartCard({ chart, index, svgContent, children }: ChartCardProps) {
   const [svg, setSvg] = useState<string>("");
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
+    if (svgContent) {
+      setSvg(svgContent);
+      return;
+    }
     let cancelled = false;
     const url = chart.svgUrl;
     if (!url) {
@@ -35,7 +41,7 @@ export function ChartCard({ chart, index, children }: ChartCardProps) {
     return () => {
       cancelled = true;
     };
-  }, [chart.svgUrl]);
+  }, [chart.svgUrl, svgContent]);
 
   const handleDownload = useCallback(() => {
     if (!svg) return;

@@ -51,9 +51,13 @@ export async function onRequest(context: any) {
     insightsOnly: true,
     signal: s.abort.signal,
   })
-    .then(() => {
+    .then(async () => {
       s.status = "done";
-      void appendAnalysisHistory(context, s, buildDonePatch(s, Date.now() - t0));
+      try {
+        await appendAnalysisHistory(context, s, buildDonePatch(s, Date.now() - t0));
+      } catch {
+        // context 可能已失效
+      }
     })
     .catch((err) => {
       s.status = "error";
