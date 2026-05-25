@@ -78,6 +78,9 @@ function setReportIdInUrl(taskId: string | null) {
   window.history.replaceState({}, "", url.toString());
 }
 
+// ✅ 模块级去重标记 —— 脱离 React 生命周期，StrictMode 无法干扰
+let _historyFetchInFlight = false;
+
 // ─── App ────────────────────────────────────────────────────
 
 export default function App() {
@@ -121,10 +124,16 @@ export default function App() {
   }, [state.agentStatus.insight]);
 
   useEffect(() => {
+    if (_historyFetchInFlight) return;
+    _historyFetchInFlight = true;
+
     setHistoryLoading(true);
     fetchAnalysisHistory(conversationIdRef.current)
       .then(setHistoryRecords)
-      .finally(() => setHistoryLoading(false));
+      .finally(() => {
+        _historyFetchInFlight = false;
+        setHistoryLoading(false);
+      });
   }, []);
 
   // 启动时：若 URL 里带了 task=xxx，尝试从后端拉快照恢复
