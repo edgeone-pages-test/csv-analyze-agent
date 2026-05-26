@@ -41,8 +41,12 @@ import { I18nProvider, LangToggle, useT } from "./i18n";
 
 const CSV_CONVERSATION_ID_STORAGE_KEY = "csv_analyze_conversation_id";
 
+function getExistingConversationId(): string | null {
+  return localStorage.getItem(CSV_CONVERSATION_ID_STORAGE_KEY);
+}
+
 function getOrCreateConversationId(): string {
-  const cached = localStorage.getItem(CSV_CONVERSATION_ID_STORAGE_KEY);
+  const cached = getExistingConversationId();
   if (cached) return cached;
 
   const conversationId = crypto.randomUUID();
@@ -135,6 +139,12 @@ function AppInner() {
   }, [state.agentStatus.insight]);
 
   useEffect(() => {
+    // First visit: no existing conversation → skip history fetch for instant load
+    if (!getExistingConversationId()) {
+      setHistoryLoading(false);
+      return;
+    }
+
     if (_historyFetchInFlight) return;
     _historyFetchInFlight = true;
 
