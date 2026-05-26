@@ -5,6 +5,7 @@ import { useCallback } from "react";
 import { motion } from "framer-motion";
 import styles from "./ReportActions.module.css";
 import { downloadReport } from "../lib/api";
+import { useT } from "../i18n";
 
 interface ReportActionsProps {
   taskId: string;
@@ -30,6 +31,7 @@ export function ReportActions({
   kinds,
   compact = false,
 }: ReportActionsProps) {
+  const { t } = useT();
   const cards: Array<{
     key: "charts" | "insight" | "merged" | "html";
     icon: string;
@@ -37,13 +39,13 @@ export function ReportActions({
     file: string;
   }> = [];
   if (kinds.charts)
-    cards.push({ key: "charts", icon: "📈", title: "CHARTS", file: "charts.md" });
+    cards.push({ key: "charts", icon: "📈", title: t("report.charts"), file: "charts.md" });
   if (kinds.insight)
-    cards.push({ key: "insight", icon: "💡", title: "INSIGHT", file: "insight.md" });
+    cards.push({ key: "insight", icon: "💡", title: t("report.insights"), file: "insight.md" });
   if (kinds.merged)
-    cards.push({ key: "merged", icon: "📄", title: "MERGED", file: "report.md" });
+    cards.push({ key: "merged", icon: "📄", title: t("report.merged"), file: "report.md" });
   if (kinds.html)
-    cards.push({ key: "html", icon: "📎", title: "HTML", file: "report.html" });
+    cards.push({ key: "html", icon: "📎", title: t("report.html"), file: "report.html" });
 
   const handleDownload = useCallback(
     (kind: "charts" | "insight" | "merged" | "html") => {
@@ -63,7 +65,7 @@ export function ReportActions({
     >
       {compact && (
         <header className={styles.cHeader}>
-          <span className={styles.cHeaderTitle}>REPORTS</span>
+          <span className={styles.cHeaderTitle}>{t("report.title")}</span>
           <span className={styles.cHeaderCount}>{cards.length}</span>
         </header>
       )}

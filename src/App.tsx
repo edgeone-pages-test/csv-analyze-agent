@@ -35,6 +35,7 @@ import { ToolDrawer } from "./components/ToolDrawer";
 import { HistoryPanel } from "./components/HistoryPanel";
 import { ReportView } from "./components/ReportView";
 import type { ToolInvocation } from "./hooks/useAgentStream";
+import { I18nProvider, LangToggle, useT } from "./i18n";
 
 // ─── Conversation ID ────────────────────────────────────────
 
@@ -84,7 +85,17 @@ let _historyFetchInFlight = false;
 // ─── App ────────────────────────────────────────────────────
 
 export default function App() {
+  return (
+    <I18nProvider>
+      <LangToggle />
+      <AppInner />
+    </I18nProvider>
+  );
+}
+
+function AppInner() {
   const { state, setUpload, restore, connect, reset } = useAgentStream();
+  const { t } = useT();
   const [drawer, setDrawer] = useState<ToolInvocation | null>(null);
   const [bootstrapping, setBootstrapping] = useState<boolean>(
     () => !!getTaskIdFromUrl(),
@@ -302,7 +313,7 @@ export default function App() {
             letterSpacing: "0.2em",
           }}
         >
-          <span>RESTORING SESSION...</span>
+          <span>{t("app.restoring")}</span>
         </main>
       </>
     );
@@ -369,7 +380,7 @@ export default function App() {
                   onChange={(e) => setChartsOnly(e.target.checked)}
                   style={{ accentColor: "var(--accent-emerald)" }}
                 />
-                CHARTS ONLY (skip insight agent · ~1/2 cost)
+                {t("app.chartsOnly")}
               </label>
               <SamplePicker onPick={onFile} disabled={pending} />
 
@@ -414,7 +425,7 @@ export default function App() {
                 e.currentTarget.style.borderColor = "rgba(255,107,107,0.2)";
               }}
             >
-              cancel
+              {t("app.cancel")}
             </button>
           )}
           {state.upload && <EventLog state={state} />}
@@ -457,7 +468,7 @@ export default function App() {
                   opacity: rerunning ? 0.55 : 1,
                 }}
               >
-                rerun insights (keep charts)
+                {t("app.rerunInsights")}
               </button>
             )}
 
@@ -489,7 +500,7 @@ export default function App() {
                 e.currentTarget.style.borderColor = "rgba(0,255,163,0.22)";
               }}
             >
-              analyze another csv
+              {t("app.analyzeAnother")}
             </button>
           )}
           {state.error && (
@@ -527,7 +538,7 @@ export default function App() {
                       cursor: "pointer",
                     }}
                   >
-                    retry
+                    {t("app.retry")}
                   </button>
                   <button
                     onClick={handleReset}
@@ -544,7 +555,7 @@ export default function App() {
                       cursor: "pointer",
                     }}
                   >
-                    reset
+                    {t("app.reset")}
                   </button>
                 </div>
               )}

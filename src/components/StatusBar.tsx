@@ -6,6 +6,7 @@ import type { ToolInvocation } from "../hooks/useAgentStream";
 import type { AgentRole, AgentState } from "../lib/events";
 import { ToolChip } from "./ToolChip";
 import styles from "./StatusBar.module.css";
+import { useT } from "../i18n";
 
 interface StatusBarProps {
   tools: ToolInvocation[];
@@ -24,6 +25,7 @@ export function StatusBar({
 }: StatusBarProps) {
   const [now, setNow] = useState(() => Date.now());
   const startRef = useRef<number | null>(null);
+  const { t } = useT();
 
   // Start the timer when the agent becomes active
   useEffect(() => {
@@ -59,7 +61,7 @@ export function StatusBar({
       </div>
       <div className={styles.chips}>
         {tools.length === 0 && (
-          <span className={styles.empty}>awaiting tool calls…</span>
+          <span className={styles.empty}>{t("status.awaiting")}</span>
         )}
         {tools.map((t) => (
           <ToolChip key={t.id} tool={t} onClick={() => onToolClick(t)} />

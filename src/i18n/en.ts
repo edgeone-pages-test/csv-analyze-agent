@@ -1,0 +1,51 @@
+const en = {
+  // App-level
+  "app.restoring": "RESTORING SESSION...",
+  "app.chartsOnly": "CHARTS ONLY (skip insight agent · ~1/2 cost)",
+  "app.cancel": "cancel",
+  "app.rerunInsights": "rerun insights (keep charts)",
+  "app.analyzeAnother": "analyze another csv",
+  "app.retry": "retry",
+  "app.reset": "reset",
+
+  // DropZone
+  "drop.title": "DROP A .CSV",
+  "drop.uploading": "UPLOADING…",
+  "drop.subtitle": "or click to browse",
+  "drop.hint": "max 50 MB · 100k rows",
+  "drop.error.type": "Only .csv files are supported",
+
+  // SamplePicker
+  "sample.title": "OR TRY A SAMPLE",
+
+  // StatusBar
+  "status.awaiting": "awaiting tool calls…",
+
+  // EventLog
+  "eventLog.title": "ACTIVITY LOG",
+  "eventLog.empty": "waiting for events…",
+
+  // ReportActions
+  "report.title": "REPORTS",
+  "report.charts": "CHARTS",
+  "report.insights": "INSIGHT",
+  "report.merged": "MERGED",
+  "report.html": "HTML",
+
+  // PassCard
+  "pass.rows": "rows",
+  "pass.columns": "columns",
+
+  // HistoryPanel
+  "history.title": "Recent Analyses",
+  "history.clear": "clear",
+  "history.loading": "loading history...",
+  "history.rows": "rows",
+  "history.cols": "cols",
+  "history.charts": "charts",
+
+  // Language toggle
+  "lang.switch": "中文",
+} as const;
+
+export default en;

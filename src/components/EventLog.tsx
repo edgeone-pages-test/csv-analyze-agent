@@ -27,6 +27,7 @@ import { useEffect, useRef, useState } from "react";
 import type { AgentStreamState, ToolInvocation } from "../hooks/useAgentStream";
 import { formatDuration } from "../lib/format";
 import styles from "./EventLog.module.css";
+import { useT } from "../i18n";
 
 type LogKind =
   | "upload"
@@ -84,6 +85,7 @@ export function EventLog({ state }: EventLogProps) {
   const [entries, setEntries] = useState<LogEntry[]>([]);
   const seenRef = useRef<SeenRecord>(emptySeen());
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { t } = useT();
 
   useEffect(() => {
     const seen = seenRef.current;
@@ -245,13 +247,13 @@ export function EventLog({ state }: EventLogProps) {
     <section className={styles.panel} aria-label="Agent activity log">
       <header className={styles.header}>
         <span className={styles.dot} data-active={!state.done} />
-        <span className={styles.title}>ACTIVITY LOG</span>
+        <span className={styles.title}>{t("eventLog.title")}</span>
         <span className={styles.count}>{entries.length}</span>
       </header>
 
       <div className={styles.scroll} ref={scrollRef}>
         {entries.length === 0 ? (
-          <div className={styles.empty}>waiting for events…</div>
+          <div className={styles.empty}>{t("eventLog.empty")}</div>
         ) : (
           <ul className={styles.list}>
             {entries.map((e) => (

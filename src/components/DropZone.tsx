@@ -7,6 +7,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import styles from "./DropZone.module.css";
+import { useT } from "../i18n";
 
 interface DropZoneProps {
   onFile: (file: File) => Promise<void>;
@@ -20,6 +21,7 @@ export function DropZone({ onFile, disabled }: DropZoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const errTimerRef = useRef<number | null>(null);
   const mountedRef = useRef(true);
+  const { t } = useT();
 
   useEffect(() => {
     return () => {
@@ -44,7 +46,7 @@ export function DropZone({ onFile, disabled }: DropZoneProps) {
     async (f: File | null) => {
       if (!f) return;
       if (!f.name.toLowerCase().endsWith(".csv")) {
-        setError("Only .csv files are supported");
+        setError(t("drop.error.type"));
         scheduleErrorClear(1800);
         return;
       }
@@ -98,10 +100,10 @@ export function DropZone({ onFile, disabled }: DropZoneProps) {
       />
       <div className={styles.inner}>
         <div className={styles.title}>
-          {uploading ? "UPLOADING…" : "DROP A .CSV"}
+          {uploading ? t("drop.uploading") : t("drop.title")}
         </div>
-        <div className={styles.sub}>or click to browse</div>
-        <div className={styles.hint}>max 50 MB · 100k rows</div>
+        <div className={styles.sub}>{t("drop.subtitle")}</div>
+        <div className={styles.hint}>{t("drop.hint")}</div>
         {error && <div className={styles.errText}>{error}</div>}
       </div>
     </div>

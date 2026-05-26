@@ -7,6 +7,7 @@
 import type { HistoryRecordWithRestore } from "../lib/api";
 import { formatDuration, formatCost } from "../lib/format";
 import css from "./HistoryPanel.module.css";
+import { useT } from "../i18n";
 
 interface HistoryPanelProps {
   records: HistoryRecordWithRestore[];
@@ -28,22 +29,23 @@ function relativeTime(ts: number): string {
 }
 
 export function HistoryPanel({ records, loading, onSelect, onClear }: HistoryPanelProps) {
+  const { t } = useT();
   if (!loading && records.length === 0) return null;
 
   return (
     <div className={css.wrap}>
       <div className={css.header}>
-        <span className={css.label}>Recent Analyses</span>
+        <span className={css.label}>{t("history.title")}</span>
         <span className={css.rule} aria-hidden />
         {!loading && records.length > 0 && (
           <button className={css.clearLink} onClick={onClear}>
-            clear
+            {t("history.clear")}
           </button>
         )}
       </div>
 
       {loading && (
-        <div className={css.loading}>loading history...</div>
+        <div className={css.loading}>{t("history.loading")}</div>
       )}
 
       {!loading && (
@@ -65,13 +67,13 @@ export function HistoryPanel({ records, loading, onSelect, onClear }: HistoryPan
             <div className={css.csvName}>{r.csvName}</div>
 
             <div className={css.stats}>
-              <span>{r.rows.toLocaleString()} rows</span>
+              <span>{r.rows.toLocaleString()} {t("history.rows")}</span>
               <span className={css.sep}>&middot;</span>
-              <span>{r.columns} cols</span>
+              <span>{r.columns} {t("history.cols")}</span>
               {r.charts != null && (
                 <>
                   <span className={css.sep}>&middot;</span>
-                  <span>{r.charts} charts</span>
+                  <span>{r.charts} {t("history.charts")}</span>
                 </>
               )}
               {r.cost?.total != null && (

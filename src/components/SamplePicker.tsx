@@ -8,6 +8,7 @@
  */
 import { useState } from "react";
 import styles from "./SamplePicker.module.css";
+import { useT } from "../i18n";
 
 export interface SampleDataset {
   file: string;            // public path, e.g. /mock/employees.csv
@@ -60,6 +61,7 @@ interface SamplePickerProps {
 
 export function SamplePicker({ onPick, disabled }: SamplePickerProps) {
   const [loadingKey, setLoadingKey] = useState<string | null>(null);
+  const { t } = useT();
 
   async function handlePick(s: SampleDataset) {
     if (disabled || loadingKey) return;
@@ -81,7 +83,7 @@ export function SamplePicker({ onPick, disabled }: SamplePickerProps) {
   return (
     <div className={styles.wrap} aria-label="Sample datasets">
       <div className={styles.header}>
-        <span className={styles.label}>OR TRY A SAMPLE</span>
+        <span className={styles.label}>{t("sample.title")}</span>
         <span className={styles.rule} aria-hidden />
       </div>
 
