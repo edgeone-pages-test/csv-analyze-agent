@@ -8,9 +8,15 @@ const en = {
   "app.retry": "retry",
   "app.reset": "reset",
 
+  // Hero
+  "hero.titleTop": "CSV",
+  "hero.titleBottom": "Intelligence",
+  "hero.subtitle": "Upload your data\nGet charts\nDiscover insights",
+  "hero.poweredBy": "Powered by Claude Agent SDK",
+
   // DropZone
-  "drop.title": "DROP A .CSV",
-  "drop.uploading": "UPLOADING…",
+  "drop.title": "Upload CSV File",
+  "drop.uploading": "Uploading Your File…",
   "drop.subtitle": "or click to browse",
   "drop.hint": "max 50 MB · 100k rows",
   "drop.error.type": "Only .csv files are supported",

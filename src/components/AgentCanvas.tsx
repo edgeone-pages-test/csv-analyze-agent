@@ -15,6 +15,7 @@ import { ChartCard } from "./ChartCard";
 import { InsightBlock } from "./InsightBlock";
 import { SummaryIsland } from "./SummaryIsland";
 import { ReanalyzeButton } from "./ReanalyzeButton";
+import { useT } from "../i18n";
 import styles from "./AgentCanvas.module.css";
 
 interface AgentCanvasProps {
@@ -24,6 +25,7 @@ interface AgentCanvasProps {
 }
 
 export function AgentCanvas({ phase, state, onReset }: AgentCanvasProps) {
+  const { t } = useT();
   const { upload, charts, insights, done } = state;
   const summary = insights.find((i) => i.kind === "summary");
   const perChart = insights.filter((i) => i.kind === "per_chart");
@@ -41,15 +43,18 @@ export function AgentCanvas({ phase, state, onReset }: AgentCanvasProps) {
             transition={{ duration: 0.4 }}
           >
             <h1 className={styles.title}>
-              <span>CSV.</span>
-              <span>ANALYZE.</span>
+              <span>{t("hero.titleTop")}</span>
+              <span>{t("hero.titleBottom")}</span>
             </h1>
             <p className={styles.sub}>
-              Two agents.<br />
-              Three reports.<br />
-              One truth.
+              {t("hero.subtitle").split("\n").map((line) => (
+                <span key={line}>
+                  {line}
+                  <br />
+                </span>
+              ))}
             </p>
-            <div className={styles.poweredBy}>Powered by Claude Agent SDK</div>
+            <div className={styles.poweredBy}>{t("hero.poweredBy")}</div>
           </motion.div>
         )}
 

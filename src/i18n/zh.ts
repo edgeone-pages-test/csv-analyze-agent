@@ -8,6 +8,12 @@ const zh = {
   "app.retry": "重试",
   "app.reset": "重置",
 
+  // Hero
+  "hero.titleTop": "CSV",
+  "hero.titleBottom": "智能分析",
+  "hero.subtitle": "上传数据\n生成图表\n发现洞察",
+  "hero.poweredBy": "Powered by Claude Agent SDK",
+
   // DropZone
   "drop.title": "拖放 CSV 文件到这里",
   "drop.uploading": "上传中…",

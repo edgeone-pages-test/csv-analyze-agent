@@ -1,8 +1,8 @@
 # CSV Analyze
 
-A full-stack web application that uses a two-agent AI pipeline (via `@anthropic-ai/claude-agent-sdk`) to automatically analyze uploaded CSV files — generating Vega-Lite charts and written insights.
+A full-stack web application based on `@anthropic-ai/claude-agent-sdk` that automatically analyzes uploaded CSV files — generating Vega-Lite charts and written insights.
 
-Runs on [EdgeOne Pages Functions](https://edgeone.ai/) (Tencent Cloud) with a React + Tailwind frontend.
+Runs on EdgeOne with a React + Tailwind frontend.
 
 ## Features
 
@@ -20,9 +20,9 @@ Runs on [EdgeOne Pages Functions](https://edgeone.ai/) (Tencent Cloud) with a Re
 | Layer | Technology |
 |-------|-----------|
 | Frontend | React 18, Tailwind CSS v4, Framer Motion, CSS Modules |
-| Backend | EdgeOne Pages Functions (file-based routing) |
-| AI | `@anthropic-ai/claude-agent-sdk` (MCP tools) |
-| Charts | Vega-Lite (server-side SVG rendering) |
+| Backend | EdgeOne Maker |
+| AI | `@anthropic-ai/claude-agent-sdk` |
+| Charts | Vega-Lite |
 | CSV | PapaParse, iconv-lite, simple-statistics |
 
 ## Getting Started
@@ -48,8 +48,6 @@ AI_GATEWAY_API_KEY=your-api-key
 ```
 
 ### Development
-
-Both servers must run simultaneously:
 
 ```bash
 edgeone pages dev

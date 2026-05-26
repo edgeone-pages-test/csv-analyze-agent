@@ -1,8 +1,8 @@
 # CSV Analyze
 
-一个全栈 Web 应用，使用双 Agent AI 流水线（基于 `@anthropic-ai/claude-agent-sdk`）自动分析上传的 CSV 文件——生成 Vega-Lite 图表和文字洞察。
+一个全栈 Web 应用，基于 `@anthropic-ai/claude-agent-sdk` 自动分析上传的 CSV 文件，生成 Vega-Lite 图表和文字洞察。
 
-运行在 [EdgeOne Pages Functions](https://edgeone.ai/)（腾讯云）上，前端使用 React + Tailwind。
+模版项目运行在 EdgeOne 上，前端使用 React + Tailwind。
 
 ## 功能特性
 
@@ -20,9 +20,9 @@
 | 层级 | 技术 |
 |------|------|
 | 前端 | React 18, Tailwind CSS v4, Framer Motion, CSS Modules |
-| 后端 | EdgeOne Pages Functions（基于文件路由） |
-| AI | `@anthropic-ai/claude-agent-sdk`（MCP 工具） |
-| 图表 | Vega-Lite（服务端 SVG 渲染） |
+| 后端 | EdgeOne Maker |
+| AI | `@anthropic-ai/claude-agent-sdk` |
+| 图表 | Vega-Lite|
 | CSV | PapaParse, iconv-lite, simple-statistics |
 
 ## 快速开始
@@ -48,8 +48,6 @@ AI_GATEWAY_API_KEY=your-api-key
 ```
 
 ### 开发
-
-两个服务器需要同时运行：
 
 ```bash
 edgeone pages dev
