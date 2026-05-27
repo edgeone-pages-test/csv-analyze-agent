@@ -6,7 +6,7 @@
  */
 import "dotenv/config";
 
-export const CLAUDE_MODEL = process.env.AI_GATEWAY_MODEL || "@Pages/hy3-preview";
+export const CLAUDE_MODEL = process.env.AI_GATEWAY_MODEL || "@makers/hy3-preview";
 
 export function collectGatewayEnv(): Record<string, string> {
   const env: Record<string, string> = {};
