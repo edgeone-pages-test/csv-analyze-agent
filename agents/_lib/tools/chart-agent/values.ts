@@ -9,21 +9,31 @@ import { loadCsv, computeColumnStats } from "../shared/csv-stats.js";
 import { writeColumnStats } from "../shared/cache.js";
 
 export const getColumnValues = (ctx: TaskContext) => {
+  // Hard ceiling enforced by the tool body — keeps demo mode lean and full
+  // mode reasonable. Demo: 12, full: 50.
   const maxLimit = ctx.demoMode ? 12 : 50;
   const defaultLimit = ctx.demoMode ? 8 : 20;
+  // Schema ceiling is intentionally LOOSER than `maxLimit`. LLMs sometimes
+  // request a larger top-K (e.g. 20, 30) — silently clamping inside the body
+  // is friendlier than rejecting the whole tool call at the schema layer and
+  // burning a turn. 100 is generous enough to cover any reasonable ask while
+  // still bounding adversarial payloads.
+  const SCHEMA_MAX = 100;
 
   return tool(
     "get_column_values",
-    "Get top-K values + histogram + numeric summary for a single column. Use this before rendering a bar/pie/histogram chart so you have a small, model-friendly payload to put into data.values.",
+    `Get top-K values + histogram + numeric summary for a single column. Use this before rendering a bar/pie/histogram chart so you have a small, model-friendly payload to put into data.values. K is silently capped at ${maxLimit} in the current mode — pass any reasonable value, the tool clamps internally.`,
     {
       column: z.string().describe("Column name (must exist in the CSV)"),
       limit: z
         .number()
         .int()
         .min(1)
-        .max(maxLimit)
+        .max(SCHEMA_MAX)
         .optional()
-        .describe(`K for top-K, default ${defaultLimit}`),
+        .describe(
+          `K for top-K, default ${defaultLimit}. Effective max is ${maxLimit} (over-cap values are clamped, never rejected).`,
+        ),
     },
     async ({ column, limit }) => {
       try {

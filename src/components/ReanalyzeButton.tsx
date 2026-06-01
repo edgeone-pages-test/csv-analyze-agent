@@ -23,7 +23,7 @@ export function ReanalyzeButton({ onClick }: ReanalyzeButtonProps) {
           <span className={styles.labels}>
             <span className={styles.title}>Analyze another CSV</span>
             <span className={styles.hint}>
-              back to upload · or pick a sample dataset
+              start a new session · upload or pick a sample
             </span>
           </span>
           <span className={styles.chev} aria-hidden>

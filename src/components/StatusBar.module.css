@@ -61,6 +61,15 @@
   background: var(--text-muted);
 }
 
+.badge.partial .badgeDot {
+  background: var(--accent-amber);
+  box-shadow: 0 0 6px rgba(255, 181, 71, 0.45);
+}
+
+.badge.partial {
+  color: var(--accent-amber);
+}
+
 .badge.insight.running .badgeDot {
   background: var(--accent-amber);
   box-shadow: 0 0 8px rgba(255, 181, 71, 0.55);

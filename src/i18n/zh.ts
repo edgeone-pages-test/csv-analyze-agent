@@ -3,6 +3,10 @@ const zh = {
   "app.restoring": "正在恢复会话...",
   "app.chartsOnly": "仅图表（跳过洞察 Agent · 约 1/2 成本）",
   "app.cancel": "取消",
+  "cancel.stop": "停止分析",
+  "cancel.stopping": "正在停止…",
+  "cancel.backHome": "返回首页",
+  "cancel.cancelled": "已取消",
   "app.rerunInsights": "重新生成洞察（保留图表）",
   "app.analyzeAnother": "分析另一个 CSV",
   "app.retry": "重试",
@@ -11,7 +15,7 @@ const zh = {
   // Hero
   "hero.titleTop": "CSV",
   "hero.titleBottom": "智能分析",
-  "hero.subtitle": "上传数据\n生成图表\n发现洞察",
+  "hero.subtitle": "上传数据\n生成图表\n获取报告",
   "hero.poweredBy": "Powered by Claude Agent SDK",
 
   // DropZone

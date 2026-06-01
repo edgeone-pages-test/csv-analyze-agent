@@ -22,9 +22,16 @@ interface AgentCanvasProps {
   phase: Phase;
   state: AgentStreamState;
   onReset: () => void;
+  /**
+   * When true, the run was aborted by the user. We freeze any live
+   * scanning/forging animations — the underlying agent stream may have
+   * been disconnected before emitting the events that would normally end
+   * the phase, so we can't rely on `phase` alone.
+   */
+  cancelled?: boolean;
 }
 
-export function AgentCanvas({ phase, state, onReset }: AgentCanvasProps) {
+export function AgentCanvas({ phase, state, onReset, cancelled = false }: AgentCanvasProps) {
   const { t } = useT();
   const { upload, charts, insights, done } = state;
   const summary = insights.find((i) => i.kind === "summary");
@@ -33,6 +40,8 @@ export function AgentCanvas({ phase, state, onReset }: AgentCanvasProps) {
     charts.length > 0 || state.tools.some((tool) => tool.agent === "chart");
   const columnScanMode =
     phase === "scanning" && !hasChartWork ? "scan" : "charting";
+  const insightNote = state.agentNotes.insight;
+  const insightPartial = state.agentStatus.insight === "partial";
 
   return (
     <section className={styles.canvas}>
@@ -77,16 +86,30 @@ export function AgentCanvas({ phase, state, onReset }: AgentCanvasProps) {
             {/* Summary island: shown at the very top only during the report phase */}
             {done && summary && <SummaryIsland text={summary.text} />}
 
-            {/* Column Scan —— visible throughout analysis (as data overview), hidden after completion */}
-            {!done && upload && (
+            {/* Partial-state banner: insight agent hit max_turns / max_budget,
+                we kept everything that was written but want to flag it. */}
+            {done && insightPartial && insightNote && (
+              <div className={styles.partialBanner} role="status">
+                <span className={styles.partialIcon} aria-hidden>
+                  ⚠
+                </span>
+                <span className={styles.partialText}>{insightNote}</span>
+              </div>
+            )}
+
+            {/* Column Scan —— visible throughout analysis (as data overview), hidden after completion.
+                When the user has cancelled, we hide it entirely — the inner CHART FORGE keeps
+                CSS-only infinite animations (sweeps, bars, pie arcs) that can't be paused via
+                props, so the cleanest fix is to drop the panel altogether. */}
+            {!done && !cancelled && upload && (
               <ColumnScan
                 distributions={upload.distributions}
                 mode={columnScanMode}
-                scanning={phase === "scanning"}
+                scanning={phase === "scanning" && !cancelled}
                 tools={state.tools}
-                runningTool={state.runningTool}
+                runningTool={cancelled ? null : state.runningTool}
                 chartsGenerated={charts.length}
-                insightsActive={phase === "insights"}
+                insightsActive={phase === "insights" && !cancelled}
               />
             )}
 
@@ -113,8 +136,10 @@ export function AgentCanvas({ phase, state, onReset }: AgentCanvasProps) {
               );
             })}
 
-            {/* "Analyze again" CTA appears at the bottom of the canvas after analysis completes */}
-            {done && <ReanalyzeButton onClick={onReset} />}
+            {/* "Analyze again" CTA appears at the bottom of the canvas after analysis completes
+                — also after a user cancel, to give them a clear way back without leaving via the
+                left sidebar. */}
+            {(done || cancelled) && <ReanalyzeButton onClick={onReset} />}
           </motion.div>
         )}
       </AnimatePresence>

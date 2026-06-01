@@ -67,6 +67,33 @@
   order: 2;
 }
 
+/* ── Partial-result warning banner ───────────────────────── */
+.partialBanner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border-radius: var(--radius-md, 8px);
+  background: rgba(255, 181, 71, 0.08);
+  border: 1px solid rgba(255, 181, 71, 0.32);
+  color: var(--accent-amber, #ffb547);
+  font-family: var(--font-mono, "JetBrains Mono", monospace);
+  font-size: 12px;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+}
+
+.partialIcon {
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.partialText {
+  flex: 1;
+  color: rgba(255, 215, 165, 0.92);
+}
+
 @media (max-width: 1024px) {
   .canvas {
     padding: 48px 20px 120px;

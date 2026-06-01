@@ -42,6 +42,8 @@ export interface AgentStreamState {
 
   currentAgent: AgentRole | null;
   agentStatus: Record<AgentRole, AgentState | "idle">;
+  /** Per-agent warning notes — populated when an agent ends in "partial". */
+  agentNotes: Partial<Record<AgentRole, string>>;
 
   /** Tool invocations recorded in execution order */
   tools: ToolInvocation[];
@@ -77,6 +79,7 @@ const initialState: AgentStreamState = {
   upload: null,
   currentAgent: null,
   agentStatus: { chart: "idle", insight: "idle" },
+  agentNotes: {},
   tools: [],
   runningTool: null,
   charts: [],
@@ -147,16 +150,24 @@ function applyEvent(
       const status = { ...s.agentStatus, [evt.role]: evt.state };
       let phase = s.phase;
       let currentAgent = s.currentAgent;
+      let agentNotes = s.agentNotes;
       if (evt.state === "running") {
         currentAgent = evt.role;
         phase = evt.role === "insight" ? "insights" : "scanning";
-      } else if (evt.state === "done" || evt.state === "skipped") {
+      } else if (
+        evt.state === "done" ||
+        evt.state === "skipped" ||
+        evt.state === "partial"
+      ) {
         if (s.currentAgent === evt.role) currentAgent = null;
         if (evt.role === "chart" && s.charts.length > 0 && phase === "scanning") {
           phase = "charting";
         }
       }
-      return { ...s, agentStatus: status, currentAgent, phase };
+      if (evt.state === "partial" && evt.note) {
+        agentNotes = { ...s.agentNotes, [evt.role]: evt.note };
+      }
+      return { ...s, agentStatus: status, currentAgent, phase, agentNotes };
     }
     case "tool": {
       const existing = s.tools.find((t) => t.id === evt.id);
@@ -249,6 +260,8 @@ export interface UseAgentStream {
   setUpload: (u: UploadResponse) => void;
   restore: (snapshot: SessionSnapshot) => void;
   connect: (taskId: string) => void;
+  /** Close the SSE subscription without clearing state. */
+  disconnect: () => void;
   reset: () => void;
 }
 
@@ -275,6 +288,11 @@ export function useAgentStream(): UseAgentStream {
     );
   }, []);
 
+  const disconnect = useCallback(() => {
+    closeRef.current?.();
+    closeRef.current = null;
+  }, []);
+
   const reset = useCallback(() => {
     closeRef.current?.();
     closeRef.current = null;
@@ -283,5 +301,5 @@ export function useAgentStream(): UseAgentStream {
 
   useEffect(() => () => closeRef.current?.(), []);
 
-  return { state, setUpload, restore, connect, reset };
+  return { state, setUpload, restore, connect, disconnect, reset };
 }

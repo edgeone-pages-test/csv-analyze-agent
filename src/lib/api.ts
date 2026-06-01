@@ -58,19 +58,61 @@ function conversationHeaders(conversationId?: string): Record<string, string> {
     : {};
 }
 
+/**
+ * EdgeOne Makers serializes requests sharing a `makers-conversation-id`
+ * header — concurrent requests get HTTP 409. Most of the time the conflict
+ * window is tiny (a slow `/history` overlapping a click) so a quick retry
+ * is enough.
+ *
+ * `init` may be passed as a factory `() => RequestInit` so the body can be
+ * rebuilt on each attempt. This matters for multipart uploads — a FormData
+ * stream is consumed by the first fetch and must be reconstructed before
+ * resending. JSON bodies are safe either way.
+ *
+ * Retries up to `attempts` times on 409 with exponential back-off.
+ * AbortError propagates immediately.
+ */
+async function fetchWithConflictRetry(
+  input: RequestInfo,
+  init?: RequestInit | (() => RequestInit),
+  attempts = 3,
+): Promise<Response> {
+  const buildInit = typeof init === "function" ? init : () => init ?? {};
+  let lastRes: Response | null = null;
+  for (let i = 0; i < attempts; i++) {
+    const res = await fetch(input, buildInit());
+    if (res.status !== 409) return res;
+    lastRes = res;
+    // 80ms → 240ms → 720ms — short enough for snappy UX, long enough for
+    // a slow /history call (typical 300–600ms) to finish on the server.
+    const delay = 80 * Math.pow(3, i);
+    await new Promise((r) => setTimeout(r, delay));
+  }
+  return lastRes!;
+}
+
 // ─── API functions ──────────────────────────────────────────
 
 export async function uploadCsv(
   file: File,
   conversationId?: string,
 ): Promise<UploadResponse> {
-  const form = new FormData();
-  form.append("file", file);
-  // multipart: don't set Content-Type, browser auto-adds boundary; only add conversation header
-  const res = await fetch("/upload", {
-    method: "POST",
-    headers: conversationHeaders(conversationId),
-    body: form,
+  // Retries on 409 — when the user clicks a sample dataset right after page
+  // load, /history may still be holding the EdgeOne per-conversation lock
+  // server-side even though we've client-aborted it. Short backoff lets the
+  // lock release before we resend.
+  //
+  // Use the factory form so each attempt rebuilds FormData — its body
+  // stream is consumed by the first fetch and would fail on retry.
+  const res = await fetchWithConflictRetry("/upload", () => {
+    const form = new FormData();
+    form.append("file", file);
+    return {
+      method: "POST",
+      // multipart: don't set Content-Type, browser auto-adds boundary
+      headers: conversationHeaders(conversationId),
+      body: form,
+    };
   });
   if (!res.ok) {
     const err = await safeJson(res);
@@ -84,7 +126,10 @@ export async function startAnalyze(
   opts: { chartsOnly?: boolean; model?: string; demoMode?: boolean } = {},
   conversationId?: string,
 ): Promise<void> {
-  const res = await fetch("/analyze", {
+  // Retries on 409 — startAnalyze fires immediately after upload, and on
+  // first page load the /history request can still be in flight against
+  // the same conversation lock.
+  const res = await fetchWithConflictRetry("/analyze", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -98,12 +143,45 @@ export async function startAnalyze(
   }
 }
 
+/**
+ * Stop a running analysis through the EdgeOne platform-native abort path.
+ *
+ * Hits POST /analyze/stop, which calls `context.utils.abortActiveRun()` on
+ * the runtime — that fires the AbortSignal of the long-lived /analyze/stream
+ * connection, which forwards into analyze() / Claude Agent SDK.
+ *
+ * IMPORTANT: this request must NOT carry the `makers-conversation-id` header
+ * of the run we're trying to cancel. The runtime would otherwise treat this
+ * request as the active run for that conversation and overwrite the target's
+ * AbortSignal with this request's signal — which means we'd abort ourselves
+ * instead of the analysis. The conversation_id is passed only via the body.
+ *
+ * Falls back to the legacy /analyze action=cancel path if the platform
+ * endpoint is missing or fails — keeps in-process AbortController flipping.
+ */
 export async function cancelAnalyze(
   taskId: string,
   conversationId?: string,
 ): Promise<void> {
+  // Platform-native stop: no conversation header.
   try {
-    await fetch("/analyze", {
+    await fetch("/analyze/stop", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        taskId,
+        ...(conversationId ? { conversation_id: conversationId } : {}),
+      }),
+    });
+  } catch {
+    /* fall through to legacy path */
+  }
+
+  // Belt-and-braces: also flip our in-process abort controller via the
+  // legacy /analyze action=cancel route. Safe to call after the stop request
+  // — handleCancel is idempotent and just records the cancelled state.
+  try {
+    await fetchWithConflictRetry("/analyze", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -174,19 +252,25 @@ export async function fetchSession(
 
 /**
  * Fetch the current conversation's analysis history.
- * Includes 409 retry (React StrictMode double-render may trigger it).
+ *
+ * Pass `signal` to make the request cancellable — useful at app boot, where
+ * the user may upload a file before the (slow) initial history fetch
+ * completes. Aborting frees the conversation lock for the upload-then-start
+ * flow.
  */
 export async function fetchAnalysisHistory(
   conversationId: string,
+  signal?: AbortSignal,
 ): Promise<HistoryRecordWithRestore[]> {
   try {
-    const res = await fetch("/history", {
+    const res = await fetchWithConflictRetry("/history", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         ...conversationHeaders(conversationId),
       },
       body: JSON.stringify({}),
+      signal,
     });
 
     if (!res.ok) return [];
@@ -196,6 +280,7 @@ export async function fetchAnalysisHistory(
     } | null;
     return Array.isArray(data?.records) ? data.records : [];
   } catch {
+    // AbortError lands here too — caller treats both as "no records".
     return [];
   }
 }

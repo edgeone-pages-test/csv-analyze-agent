@@ -9,7 +9,7 @@ import type { ChartMeta, Insight } from "./types.js";
 
 export type AgentRole = "chart" | "insight";
 
-export type AgentState = "running" | "done" | "skipped";
+export type AgentState = "running" | "done" | "skipped" | "partial";
 
 export type ToolState = "running" | "done" | "failed";
 
@@ -27,6 +27,13 @@ export interface AgentEventMsg {
   type: "agent";
   role: AgentRole;
   state: AgentState;
+  /**
+   * Optional reason — only meaningful for "partial" / "skipped".
+   * e.g. "max_turns_reached", "max_budget_reached".
+   */
+  reason?: string;
+  /** Human-readable note for the UI when state is "partial". */
+  note?: string;
 }
 
 export interface ToolEvent {

@@ -112,9 +112,36 @@ export async function analyze(opts: AnalyzeOptions): Promise<AnalyzeResult> {
       } else {
         ctx.emit?.({ type: "agent", role: "insight", state: "running" });
         console.log("▶ Stage 2/2: Insight Agent writing insights...");
-        insightCost = await runInsightAgent(ctx, model, opts);
-        console.log(`✅ Insight Agent done, wrote ${ctx.insights.length} insights\n`);
-        ctx.emit?.({ type: "agent", role: "insight", state: "done" });
+        try {
+          insightCost = await runInsightAgent(ctx, model, opts);
+          console.log(`✅ Insight Agent done, wrote ${ctx.insights.length} insights\n`);
+          ctx.emit?.({ type: "agent", role: "insight", state: "done" });
+        } catch (e) {
+          // Soft-fail: when the insight agent hits the max-turns or max-budget
+          // ceiling but has already saved some insights, we degrade to a
+          // "partial" state instead of failing the whole analysis. The user
+          // still gets every chart and whatever insights were written.
+          const subtype = (e as Error & { subtype?: string }).subtype;
+          const isSoftLimit =
+            subtype === "error_max_turns" ||
+            subtype === "error_max_budget_usd";
+          if (isSoftLimit && ctx.insights.length > 0) {
+            const note =
+              subtype === "error_max_turns"
+                ? `Insight agent hit the turn limit after ${ctx.insights.length}/${ctx.charts.length + 1} insights — keeping what was written.`
+                : `Insight agent hit the budget limit after ${ctx.insights.length}/${ctx.charts.length + 1} insights — keeping what was written.`;
+            console.warn(`⚠️  ${note}`);
+            ctx.emit?.({
+              type: "agent",
+              role: "insight",
+              state: "partial",
+              reason: subtype,
+              note,
+            });
+          } else {
+            throw e;
+          }
+        }
       }
     } else {
       ctx.emit?.({ type: "agent", role: "insight", state: "skipped" });
@@ -289,7 +316,12 @@ async function runInsightAgent(
       ? "Write 1–2 sentences of insight per chart, then a 2–3 sentence summary. Start by calling read_context."
       : "Based on the charts and data summary from the previous step, write insights for each chart and provide an overall conclusion. Start by calling read_context.",
     model,
-    maxTurns: opts.maxTurns ?? (demo ? 8 : 15),
+    // Each chart can take up to ~4 turns of insight work (read_context once,
+    // optional read_column_stats / read_correlation, then save_insight per chart,
+    // plus a final summary). With up to 6 charts in normal mode, 15 turns was
+    // too tight and the agent regularly hit error_max_turns. Bump the ceiling
+    // so the agent has room to finish naturally on busier datasets.
+    maxTurns: opts.maxTurns ?? (demo ? 14 : 32),
     maxBudgetUsd: opts.maxBudgetUsd ?? (demo ? 0.04 : 0.2),
     signal: opts.signal,
   });
@@ -323,6 +355,25 @@ async function runAgent(params: RunAgentParams): Promise<number | undefined> {
     throw new Error("analysis cancelled");
   }
 
+  // The SDK's official cancellation entry point: pass an AbortController via
+  // options.abortController and the SDK tears down in-flight LLM/tool calls
+  // immediately. This mirrors the working pattern from claude-agent-starter
+  // (agents/chat/_stream.ts).
+  //
+  // The previous implementation called `(q as any).interrupt?.()` which is
+  // not a real method on the query iterator — it silently no-op'd, so abort
+  // signals only took effect when the SDK returned of its own accord and
+  // our polling check below noticed `signal.aborted`. That meant tens of
+  // seconds of "still running" after the user clicked Stop.
+  const sdkAbort = new AbortController();
+  if (params.signal?.aborted) {
+    sdkAbort.abort();
+  } else {
+    params.signal?.addEventListener("abort", () => sdkAbort.abort(), {
+      once: true,
+    });
+  }
+
   const q = query({
     prompt: params.prompt,
     options: {
@@ -351,19 +402,11 @@ async function runAgent(params: RunAgentParams): Promise<number | undefined> {
       permissionMode: "default",
       maxTurns: params.maxTurns,
       env: collectGatewayEnv(),
+      abortController: sdkAbort,
     },
   });
 
   let costUsd: number | undefined;
-
-  const onAbort = () => {
-    try {
-      (q as { interrupt?: () => void }).interrupt?.();
-    } catch {
-      /* noop */
-    }
-  };
-  params.signal?.addEventListener("abort", onAbort, { once: true });
 
   try {
     for await (const msg of q) {
@@ -427,16 +470,23 @@ async function runAgent(params: RunAgentParams): Promise<number | undefined> {
       } else if (msg.type === "result") {
         costUsd = msg.total_cost_usd;
         if (msg.subtype !== "success") {
-          throw new Error(
+          // Attach the SDK's structured subtype as a custom property so the
+          // caller can tell soft limit-hits (max_turns / max_budget_usd) apart
+          // from hard execution errors and decide whether to degrade or fail.
+          const detail =
+            "error" in msg ? (msg as { error?: string }).error : undefined;
+          const err = new Error(
             `${params.mcpName} ended abnormally: ${msg.subtype}${
-              "error" in msg ? " — " + (msg as { error?: string }).error : ""
+              detail ? " — " + detail : ""
             }`,
           );
+          (err as Error & { subtype?: string }).subtype = msg.subtype;
+          throw err;
         }
       }
     }
   } finally {
-    params.signal?.removeEventListener("abort", onAbort);
+    // Listener is registered with `{ once: true }`, no manual cleanup needed.
   }
   return costUsd;
 }

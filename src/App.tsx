@@ -34,6 +34,8 @@ import { StatusBar } from "./components/StatusBar";
 import { ToolDrawer } from "./components/ToolDrawer";
 import { HistoryPanel } from "./components/HistoryPanel";
 import { ReportView } from "./components/ReportView";
+import { CancelControl } from "./components/CancelControl";
+import type { CancelPhase } from "./components/CancelControl";
 import type { ToolInvocation } from "./hooks/useAgentStream";
 import { I18nProvider, LangToggle, useT } from "./i18n";
 
@@ -98,7 +100,7 @@ export default function App() {
 }
 
 function AppInner() {
-  const { state, setUpload, restore, connect, reset } = useAgentStream();
+  const { state, setUpload, restore, connect, disconnect, reset } = useAgentStream();
   const { t } = useT();
   const [drawer, setDrawer] = useState<ToolInvocation | null>(null);
   const [bootstrapping, setBootstrapping] = useState<boolean>(
@@ -111,6 +113,15 @@ function AppInner() {
   const lastOptsRef = useRef<{ chartsOnly: boolean; demoMode?: boolean } | null>(null);
   const [rerunning, setRerunning] = useState<boolean>(false);
 
+  /**
+   * Cancel-flow phase, separate from agent state machine.
+   *   "running"    → agent is live, show "Stop analysis" CTA
+   *   "cancelling" → user clicked stop, awaiting backend abort to land
+   *   "cancelled"  → analysis aborted, offer "Back to home"
+   * Reset to "running" whenever a fresh upload starts.
+   */
+  const [cancelPhase, setCancelPhase] = useState<CancelPhase>("running");
+
   // ─── Report view state ─────────────────────────────────
   const [reportTaskId, setReportTaskId] = useState<string | null>(
     () => getReportIdFromUrl(),
@@ -122,6 +133,13 @@ function AppInner() {
   // ─── History state ──────────────────────────────────────
   const [historyRecords, setHistoryRecords] = useState<HistoryRecordWithRestore[]>([]);
   const [historyLoading, setHistoryLoading] = useState<boolean>(true);
+  /**
+   * Tracks the in-flight initial history fetch. EdgeOne serializes requests
+   * sharing a `makers-conversation-id` — if /history is still pending when
+   * the user uploads, /analyze (which carries the same header) gets a 409.
+   * We abort the fetch on first user action so the lock is released.
+   */
+  const historyAbortRef = useRef<AbortController | null>(null);
 
   const active =
     state.agentStatus.chart === "running" ||
@@ -149,12 +167,20 @@ function AppInner() {
     _historyFetchInFlight = true;
 
     setHistoryLoading(true);
-    fetchAnalysisHistory(conversationIdRef.current)
+    const controller = new AbortController();
+    historyAbortRef.current = controller;
+    fetchAnalysisHistory(conversationIdRef.current, controller.signal)
       .then(setHistoryRecords)
       .finally(() => {
         _historyFetchInFlight = false;
         setHistoryLoading(false);
+        if (historyAbortRef.current === controller) {
+          historyAbortRef.current = null;
+        }
       });
+    return () => {
+      controller.abort();
+    };
   }, []);
 
   // On startup: if URL has task=xxx, try fetching snapshot from backend to restore
@@ -205,9 +231,14 @@ function AppInner() {
 
   const onFile = useCallback(
     async (f: File) => {
+      // Drop any in-flight history fetch so it can't hold the EdgeOne
+      // per-conversation lock while we kick off /upload + /analyze.
+      historyAbortRef.current?.abort();
+      historyAbortRef.current = null;
       const result: UploadResponse = await uploadCsv(f, conversationIdRef.current);
       setUpload(result);
       connect(result.taskId);
+      setCancelPhase("running");
       const opts = { chartsOnly, demoMode: true };
       lastOptsRef.current = opts;
       await startAnalyze(result.taskId, opts, conversationIdRef.current);
@@ -218,6 +249,7 @@ function AppInner() {
   const handleReset = useCallback(() => {
     setTaskIdInUrl(null);
     reset();
+    setCancelPhase("running");
     // Don't delete session — it auto-expires (24h TTL).
     // This way history can correctly load reports via live session fallback.
     fetchAnalysisHistory(conversationIdRef.current).then(setHistoryRecords);
@@ -227,6 +259,7 @@ function AppInner() {
     if (!state.taskId) return;
     const opts = lastOptsRef.current ?? { chartsOnly, demoMode: true };
     try {
+      setCancelPhase("running");
       await startAnalyze(state.taskId, opts, conversationIdRef.current);
       connect(state.taskId);
     } catch (e) {
@@ -251,8 +284,20 @@ function AppInner() {
 
   const handleCancel = useCallback(async () => {
     if (!state.taskId) return;
-    await cancelAnalyze(state.taskId, conversationIdRef.current);
-  }, [state.taskId]);
+    setCancelPhase("cancelling");
+    try {
+      // The backend's HTTP 200 means it has accepted the abort and recorded
+      // a "cancelled" history entry. The SDK may still take several seconds
+      // to actually throw — but as far as the user is concerned, "stopped"
+      // means stopped, so we don't wait for that trailing error event.
+      await cancelAnalyze(state.taskId, conversationIdRef.current);
+    } finally {
+      // Drop the SSE subscription so any late `error: analysis cancelled`
+      // event from the SDK can't dirty the UI after we've shown "back".
+      disconnect();
+      setCancelPhase("cancelled");
+    }
+  }, [state.taskId, disconnect]);
 
   // ─── History handlers ───────────────────────────────────
 
@@ -409,35 +454,15 @@ function AppInner() {
               active={active}
             />
           )}
-          {state.upload && active && !state.done && (
-            <button
-              onClick={handleCancel}
-              style={{
-                alignSelf: "flex-start",
-                padding: "3px 10px",
-                background: "transparent",
-                border: "1px solid rgba(255,107,107,0.2)",
-                borderRadius: 4,
-                fontFamily: "var(--font-mono)",
-                fontSize: 9,
-                letterSpacing: "0.12em",
-                color: "var(--text-muted)",
-                textTransform: "uppercase",
-                cursor: "pointer",
-                transition: "color 160ms, border-color 160ms",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = "var(--accent-coral, #ff6b6b)";
-                e.currentTarget.style.borderColor = "rgba(255,107,107,0.45)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = "var(--text-muted)";
-                e.currentTarget.style.borderColor = "rgba(255,107,107,0.2)";
-              }}
-            >
-              {t("app.cancel")}
-            </button>
-          )}
+          {state.upload &&
+            !state.done &&
+            (cancelPhase !== "running" || (active && !state.error)) && (
+              <CancelControl
+                phase={cancelPhase}
+                onStop={handleCancel}
+                onBack={handleReset}
+              />
+            )}
           {state.upload && <EventLog state={state} />}
           {state.upload && state.done && state.reports && state.taskId && (
             <ReportActions
@@ -513,7 +538,7 @@ function AppInner() {
               {t("app.analyzeAnother")}
             </button>
           )}
-          {state.error && (
+          {state.error && cancelPhase === "running" && (
             <div
               style={{
                 marginTop: 12,
@@ -574,13 +599,34 @@ function AppInner() {
         </aside>
 
         {/* Right column 56vw */}
-        <AgentCanvas phase={state.phase} state={state} onReset={handleReset} />
+        <AgentCanvas
+          phase={state.phase}
+          state={state}
+          onReset={handleReset}
+          cancelled={cancelPhase !== "running"}
+        />
       </main>
 
       {state.upload && (
         <StatusBar
           tools={state.tools}
-          agentStatus={state.agentStatus}
+          agentStatus={
+            cancelPhase === "running"
+              ? state.agentStatus
+              : {
+                  // After a user cancel we drop the SSE before the agents
+                  // emit `done`, so agentStatus may be stuck on "running".
+                  // Override to "skipped" so the badges stop pulsing.
+                  chart:
+                    state.agentStatus.chart === "running"
+                      ? "skipped"
+                      : state.agentStatus.chart,
+                  insight:
+                    state.agentStatus.insight === "running"
+                      ? "skipped"
+                      : state.agentStatus.insight,
+                }
+          }
           durationMs={state.durationMs}
           costUsd={state.cost.total}
           onToolClick={(t) => setDrawer(t)}
