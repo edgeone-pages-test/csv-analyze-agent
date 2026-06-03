@@ -88,24 +88,25 @@ edgeone makers build
 
 ### API Routes
 
-All routes use POST (EdgeOne runtime limitation):
+All routes use POST (EdgeOne runtime limitation). The "Side" column shows whether the route is served by `agents/` (stateful — owns the in-memory Session map and SSE streams) or `cloud-functions/` (stateless — only reads `context.agent.store`):
 
-| Route | Purpose |
-|-------|---------|
-| `/upload` | Multipart CSV upload; returns taskId + profile |
-| `/analyze` | `action: "get"\|"start"\|"cancel"\|"delete"` |
-| `/analyze/stream` | SSE stream (body: `{taskId}`) |
-| `/analyze/rerun-insights` | Re-run insight agent on existing charts |
-| `/analyze/download` | Download report files |
-| `/static` | Serve generated SVG/chart files |
-| `/history` | Per-conversation analysis history |
-| `/history/detail` | Full analysis artifacts |
+| Route | Side | Purpose |
+|-------|------|---------|
+| `/upload` | `agents/` | Multipart CSV upload; returns taskId + profile |
+| `/analyze` | `agents/` | `action: "get"\|"start"\|"cancel"\|"delete"` |
+| `/analyze/stream` | `agents/` | SSE stream (body: `{taskId}`) |
+| `/analyze/rerun-insights` | `agents/` | Re-run insight agent on existing charts |
+| `/analyze/download` | `agents/` | Download report files |
+| `/analyze/stop` | `agents/` | Platform-native abort via `context.utils.abortActiveRun()` |
+| `/static` | `agents/` | Serve generated SVG/chart files (touches the live session to keep it alive while a tab views it) |
+| `/history` | `cloud-functions/` | Per-conversation analysis history |
+| `/history-detail` | `cloud-functions/` | Full analysis artifacts (SVG, insights, report HTML) for a given taskId |
 
 ### Project Structure
 
 ```
 csv-analyze/
-├── agents/                  # Backend (EdgeOne Makers)
+├── agents/                  # Stateful EdgeOne Makers Agent Functions (own the Session map + SSE streams)
 │   ├── _lib/               # Shared libraries
 │   │   ├── analyze.ts      # Two-agent orchestration
 │   │   ├── system-prompt.ts # Agent system prompts
@@ -117,16 +118,21 @@ csv-analyze/
 │   │   │   ├── insight-agent/ # MCP tools for Insight Agent
 │   │   │   └── shared/       # Shared utilities (CSV stats, cache)
 │   │   └── ...
-│   ├── analyze/            # /analyze routes
-│   ├── history/            # /history routes
+│   ├── analyze/            # /analyze, /analyze/stream, /analyze/rerun-insights, /analyze/download, /analyze/stop
 │   ├── upload/             # /upload route
-│   └── static/             # /static route
+│   └── static/             # /static route — serves SVG/chart files from the live session
+├── cloud-functions/         # Stateless EdgeOne Pages Node Functions (read-only on context.agent.store)
+│   ├── history/            # /history — per-conversation analysis records
+│   ├── history-detail/     # /history-detail — full artifacts blob for one taskId
+│   ├── _http.ts            # Shared HTTP helpers
+│   └── _logger.ts          # Logger utility
 ├── src/                    # Frontend (React SPA)
 │   ├── components/         # UI components with CSS Modules
 │   ├── hooks/              # useAgentStream (SSE state machine)
 │   ├── lib/                # API client, event types, formatters
 │   └── types.ts            # Frontend type definitions
 ├── index.html
-├── package.json
-└── CLAUDE.md               # AI assistant instructions
+└── package.json
 ```
+
+> **Why two backend folders?** `agents/` and `cloud-functions/` run in separate process contexts on EdgeOne. The agents process owns the `Map<string, Session>` and the per-conversation lifecycle (running tasks, abort signals, SSE streams); the cloud-functions process is stateless and reaches the persisted store via `context.agent.store`. Routes that don't need a live Session live in `cloud-functions/` so they don't compete with active analyses for the per-conversation lock.

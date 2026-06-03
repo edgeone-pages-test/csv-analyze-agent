@@ -88,24 +88,25 @@ edgeone makers build
 
 ### API 路由
 
-所有路由使用 POST（EdgeOne 运行时限制）：
+所有路由使用 POST（EdgeOne 运行时限制）。「所在目录」一列说明该路由由 `agents/`（有状态，持有内存 Session map 和 SSE 流）还是 `cloud-functions/`（无状态，仅读 `context.agent.store`）提供：
 
-| 路由 | 用途 |
-|------|------|
-| `/upload` | Multipart CSV 上传；返回 taskId + profile |
-| `/analyze` | `action: "get"\|"start"\|"cancel"\|"delete"` |
-| `/analyze/stream` | SSE 流（body: `{taskId}`） |
-| `/analyze/rerun-insights` | 基于已有图表重跑 Insight Agent |
-| `/analyze/download` | 下载报告文件 |
-| `/static` | 提供生成的 SVG/图表文件 |
-| `/history` | 按对话维度的分析历史 |
-| `/history/detail` | 完整分析制品 |
+| 路由 | 所在目录 | 用途 |
+|------|----------|------|
+| `/upload` | `agents/` | Multipart CSV 上传；返回 taskId + profile |
+| `/analyze` | `agents/` | `action: "get"\|"start"\|"cancel"\|"delete"` |
+| `/analyze/stream` | `agents/` | SSE 流（body: `{taskId}`） |
+| `/analyze/rerun-insights` | `agents/` | 基于已有图表重跑 Insight Agent |
+| `/analyze/download` | `agents/` | 下载报告文件 |
+| `/analyze/stop` | `agents/` | 通过 `context.utils.abortActiveRun()` 走平台原生中断 |
+| `/static` | `agents/` | 提供生成的 SVG / 图表文件（访问时会刷新对应 session 的 TTL，防止用户查看图表期间被回收） |
+| `/history` | `cloud-functions/` | 按对话维度的分析历史 |
+| `/history-detail` | `cloud-functions/` | 某个 taskId 的完整制品（SVG、洞察、报告 HTML） |
 
 ### 项目结构
 
 ```
 csv-analyze/
-├── agents/                  # 后端（EdgeOne Makers）
+├── agents/                  # 有状态的 EdgeOne Makers Agent Functions（持有 Session map 和 SSE 流）
 │   ├── _lib/               # 共享库
 │   │   ├── analyze.ts      # 双 Agent 编排
 │   │   ├── system-prompt.ts # Agent 系统提示词
@@ -117,16 +118,21 @@ csv-analyze/
 │   │   │   ├── insight-agent/ # Insight Agent 的 MCP 工具
 │   │   │   └── shared/       # 共享工具（CSV 统计、缓存）
 │   │   └── ...
-│   ├── analyze/            # /analyze 路由
-│   ├── history/            # /history 路由
+│   ├── analyze/            # /analyze、/analyze/stream、/analyze/rerun-insights、/analyze/download、/analyze/stop
 │   ├── upload/             # /upload 路由
-│   └── static/             # /static 路由
+│   └── static/             # /static 路由 — 从活跃 session 读取并返回 SVG/图表
+├── cloud-functions/         # 无状态的 EdgeOne Pages Node Functions（只读 context.agent.store）
+│   ├── history/            # /history — 按对话维度的分析记录
+│   ├── history-detail/     # /history-detail — 某 taskId 的完整制品
+│   ├── _http.ts            # 共享 HTTP 辅助函数
+│   └── _logger.ts          # 日志工具
 ├── src/                    # 前端（React SPA）
 │   ├── components/         # UI 组件 + CSS Modules
 │   ├── hooks/              # useAgentStream（SSE 状态机）
 │   ├── lib/                # API 客户端、事件类型、格式化工具
 │   └── types.ts            # 前端类型定义
 ├── index.html
-├── package.json
-└── CLAUDE.md               # AI 助手指令
+└── package.json
 ```
+
+> **为什么后端拆成两个目录？** 在 EdgeOne 上 `agents/` 和 `cloud-functions/` 跑在不同的进程上下文里。agents 进程持有 `Map<string, Session>` 和按会话维度的生命周期（运行中的任务、abort 信号、SSE 流）；cloud-functions 进程是无状态的，通过 `context.agent.store` 访问持久化数据。不需要活跃 Session 的路由放在 `cloud-functions/`，这样它们就不会和正在跑的分析争抢同一会话的锁。
