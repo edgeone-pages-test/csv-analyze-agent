@@ -2,7 +2,11 @@
 
 A full-stack web application based on `@anthropic-ai/claude-agent-sdk` that automatically analyzes uploaded CSV files — generating Vega-Lite charts and written insights.
 
-Runs on EdgeOne with a React + Tailwind frontend.
+Runs on EdgeOne Makers with a React + Tailwind frontend.
+
+## Deploy
+
+[![Deploy with EdgeOne Pages](https://cdnstatic.tencentcs.com/edgeone/pages/deploy.svg)](https://edgeone.ai/makers/new?template=csv-analyze-agent&from=within&fromAgent=1&agentLang=typescript)
 
 ## Features
 

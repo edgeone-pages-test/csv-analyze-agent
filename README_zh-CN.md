@@ -2,7 +2,11 @@
 
 一个全栈 Web 应用，基于 `@anthropic-ai/claude-agent-sdk` 自动分析上传的 CSV 文件，生成 Vega-Lite 图表和文字洞察。
 
-模版项目运行在 EdgeOne 上，前端使用 React + Tailwind。
+模版项目运行在 EdgeOne Makers 上，前端使用 React + Tailwind。
+
+## 部署
+
+[![使用 EdgeOne Pages 部署](https://cdnstatic.tencentcs.com/edgeone/pages/deploy.svg)](https://console.cloud.tencent.com/edgeone/makers/new?template=csv-analyze-agent&from=within&fromAgent=1&agentLang=typescript)
 
 ## 功能特性
 

@@ -38,6 +38,7 @@ Thumbs.db
 # Claude Code generated files
 .claude/
 .idea/
+.codegraph/
 *.swp
 *.swo
 
