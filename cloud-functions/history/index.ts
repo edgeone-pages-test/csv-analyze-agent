@@ -67,10 +67,10 @@ export async function onRequestPost(context: any): Promise<Response> {
   const t0 = Date.now();
   const body = await readJsonBody(context);
   const conversationId = pickConversationId(body);
-  const store = context.agent?.store ?? null;
+  const { store } = context.agent;
 
-  if (!store || !conversationId) {
-    logger.log("done", { ms: Date.now() - t0, conversationId, store: !!store, records: 0 });
+  if (!conversationId) {
+    logger.log("done", { ms: Date.now() - t0, conversationId, records: 0 });
     return jsonResponse({ conversation_id: conversationId, records: [] });
   }
 

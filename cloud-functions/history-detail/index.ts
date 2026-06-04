@@ -67,10 +67,10 @@ export async function onRequestPost(context: any): Promise<Response> {
   if (!taskId) return errorResponse("taskId is required");
 
   const conversationId = pickConversationId(body);
-  const store = context.agent?.store ?? null;
+  const { store } = context.agent;
 
-  if (!store || !conversationId) {
-    logger.log("miss", { ms: Date.now() - t0, taskId, conversationId, store: !!store });
+  if (!conversationId) {
+    logger.log("miss", { ms: Date.now() - t0, taskId, conversationId });
     return errorResponse("artifacts not found for this taskId", 404);
   }
 
