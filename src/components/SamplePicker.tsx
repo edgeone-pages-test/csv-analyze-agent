@@ -81,7 +81,7 @@ export function SamplePicker({ onPick, disabled }: SamplePickerProps) {
   }
 
   return (
-    <div className={styles.wrap} aria-label="Sample datasets">
+    <div className={styles.wrap} aria-label={t("aria.sampleDatasets")}>
       <div className={styles.header}>
         <span className={styles.label}>{t("sample.title")}</span>
         <span className={styles.rule} aria-hidden />

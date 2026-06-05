@@ -54,6 +54,11 @@ const zh = {
   "history.cols": "列",
   "history.charts": "图表",
 
+  // Aria labels (button hover/screen-reader)
+  "aria.close": "关闭",
+  "aria.agentLog": "Agent 活动日志",
+  "aria.sampleDatasets": "示例数据集",
+
   // Language toggle
   "lang.switch": "English",
 } as const;

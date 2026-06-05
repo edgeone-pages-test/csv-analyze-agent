@@ -3,6 +3,7 @@
  */
 import { AnimatePresence, motion } from "framer-motion";
 import type { ToolInvocation } from "../hooks/useAgentStream";
+import { useT } from "../i18n";
 import styles from "./ToolDrawer.module.css";
 
 interface ToolDrawerProps {
@@ -11,6 +12,7 @@ interface ToolDrawerProps {
 }
 
 export function ToolDrawer({ tool, onClose }: ToolDrawerProps) {
+  const { t } = useT();
   return (
     <AnimatePresence>
       {tool && (
@@ -30,7 +32,7 @@ export function ToolDrawer({ tool, onClose }: ToolDrawerProps) {
             <button
               onClick={onClose}
               className={styles.close}
-              aria-label="close"
+              aria-label={t("aria.close")}
             >
               ×
             </button>

@@ -244,7 +244,7 @@ export function EventLog({ state }: EventLogProps) {
   }, [entries.length]);
 
   return (
-    <section className={styles.panel} aria-label="Agent activity log">
+    <section className={styles.panel} aria-label={t("aria.agentLog")}>
       <header className={styles.header}>
         <span className={styles.dot} data-active={!state.done} />
         <span className={styles.title}>{t("eventLog.title")}</span>

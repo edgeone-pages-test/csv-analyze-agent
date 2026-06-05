@@ -54,6 +54,11 @@ const en = {
   "history.cols": "cols",
   "history.charts": "charts",
 
+  // Aria labels (button hover/screen-reader)
+  "aria.close": "Close",
+  "aria.agentLog": "Agent activity log",
+  "aria.sampleDatasets": "Sample datasets",
+
   // Language toggle
   "lang.switch": "中文",
 } as const;
