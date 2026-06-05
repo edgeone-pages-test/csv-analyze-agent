@@ -101,19 +101,52 @@ export async function appendAnalysisHistory(
   session: Session,
   patch: Partial<CsvAnalysisHistoryRecord> & { status: AnalysisHistoryStatus },
 ): Promise<void> {
+  const conversationId: string = context?.conversation_id ?? "";
+  const store = context?.store ?? null;
+
+  console.log(
+    `[history] append status=${patch.status} conversationId=${conversationId || "(empty)"} store=${store ? "ok" : "null"}`,
+  );
+
+  if (!store || !conversationId) {
+    console.log(
+      `[history][debug] append SKIPPED: no store or no conversationId (store=${!!store}, cid=${!!conversationId})`,
+    );
+    return;
+  }
+
+  // Build the record up-front so we can dump it on failure.
+  let record: CsvAnalysisHistoryRecord | null = null;
   try {
-    const conversationId: string = context?.conversation_id ?? "";
-    const store = context?.store ?? null;
+    record = buildRecord(session, patch);
+  } catch (err) {
+    console.warn(
+      `[history][debug] buildRecord threw before appendMessage:`,
+      err instanceof Error ? `${err.name}: ${err.message}\n${err.stack}` : String(err),
+    );
+    return;
+  }
 
-    console.log(`[history] append status=${patch.status} conversationId=${conversationId || "(empty)"} store=${store ? "ok" : "null"}`);
+  // Detailed pre-write log: what we're about to send to the store.
+  // Helps tell apart "platform store rejected my payload" from
+  // "we never tried to write" when the next line shows append status=error.
+  try {
+    console.log(
+      `[history][debug] appendMessage REQUEST: ` +
+        `cid=${conversationId} taskId=${record.taskId} status=${record.status} ` +
+        `recordKeys=${JSON.stringify(Object.keys(record))} ` +
+        `recordSizeBytes=${JSON.stringify(record).length}`,
+    );
+  } catch {
+    // Fall back if record isn't JSON-serializable (which would itself be a bug).
+    console.log(
+      `[history][debug] appendMessage REQUEST: cid=${conversationId} (record not JSON-serializable)`,
+    );
+  }
 
-    if (!store || !conversationId) {
-      return;
-    }
-
-    const record = buildRecord(session, patch);
-
-    await store.appendMessage({
+  try {
+    const startedAt = Date.now();
+    const result = await store.appendMessage({
       conversationId,
       role: "assistant",
       content: record,
@@ -125,8 +158,40 @@ export async function appendAnalysisHistory(
         status: record.status,
       },
     });
+    console.log(
+      `[history][debug] appendMessage OK: cid=${conversationId} taskId=${record.taskId} ` +
+        `status=${record.status} durationMs=${Date.now() - startedAt} ` +
+        `result=${typeof result === "string" ? result : JSON.stringify(result)}`,
+    );
   } catch (err) {
-    // Write failure does not affect the main flow, only log
+    // Dump every field we can pry off the error so the dev-server console
+    // shows the actual cause (platform store error, validation, network, ...)
+    // instead of just "appendAnalysisHistory failed: <one-line message>".
+    const e = err as any;
+    console.warn(`[history][debug] appendMessage FAILED:`);
+    console.warn(`  status=${patch.status} cid=${conversationId} taskId=${record?.taskId}`);
+    console.warn(`  error.name=${e?.name}`);
+    console.warn(`  error.message=${e?.message}`);
+    console.warn(`  error.code=${e?.code}`);
+    console.warn(`  error.statusCode=${e?.statusCode ?? e?.status}`);
+    if (e?.cause !== undefined) {
+      try {
+        console.warn(`  error.cause=${JSON.stringify(e.cause, null, 2)}`);
+      } catch {
+        console.warn(`  error.cause (non-serializable)=`, e.cause);
+      }
+    }
+    if (e?.response) {
+      try {
+        console.warn(`  error.response=${JSON.stringify(e.response, null, 2)}`);
+      } catch {
+        console.warn(`  error.response (non-serializable)=`, e.response);
+      }
+    }
+    if (e?.stack) {
+      console.warn(`  error.stack=\n${e.stack}`);
+    }
+    // Keep the legacy single-line warning so existing log scrapers still work.
     console.warn(
       "[history] appendAnalysisHistory failed:",
       err instanceof Error ? err.message : String(err),
@@ -221,19 +286,29 @@ export async function persistAnalysisArtifacts(
   cost: { chart?: number; insight?: number; total: number },
   durationMs: number,
 ): Promise<void> {
+  const conversationId: string = context?.conversation_id ?? "";
+  const store = context?.store ?? null;
+
+  console.log(
+    `[history] persistArtifacts conversationId=${conversationId || "(empty)"} store=${store ? "ok" : "null"} taskId=${session.id}`,
+  );
+
+  if (!store || !conversationId) {
+    console.log(
+      `[history][debug] persistArtifacts SKIPPED: no store or no conversationId (store=${!!store}, cid=${!!conversationId})`,
+    );
+    return;
+  }
+
+  let artifacts: AnalysisArtifacts | null = null;
   try {
-    const conversationId: string = context?.conversation_id ?? "";
-    const store = context?.store ?? null;
-
-    if (!store || !conversationId) return;
-
     const events = session.events ?? [];
     const charts = extractChartsFromEvents(events);
     const insights = extractInsightsFromEvents(events);
     const svgs = await loadChartSvgs(session.outDir, charts);
     const reportHtml = await loadReportHtml(session.outDir);
 
-    const artifacts: AnalysisArtifacts = {
+    artifacts = {
       kind: "csv_analysis_artifacts",
       version: 1,
       taskId: session.id,
@@ -248,6 +323,26 @@ export async function persistAnalysisArtifacts(
       createdAt: session.createdAt,
     };
 
+    // Pre-write size sanity log. Artifacts payloads are big (SVGs + reportHtml),
+    // and EdgeOne store has a per-message size cap (~50MB serialized). If you
+    // see consistent FAILED here, this number is the first thing to check.
+    const sizeBytes = JSON.stringify(artifacts).length;
+    const svgKeys = Object.keys(svgs);
+    console.log(
+      `[history][debug] persistArtifacts REQUEST: cid=${conversationId} taskId=${session.id} ` +
+        `charts=${charts.length} insights=${insights.length} svgs=${svgKeys.length} ` +
+        `reportHtmlBytes=${reportHtml?.length ?? 0} totalSizeBytes=${sizeBytes}`,
+    );
+  } catch (err) {
+    console.warn(
+      `[history][debug] persistArtifacts BUILD FAILED (before appendMessage):`,
+      err instanceof Error ? `${err.name}: ${err.message}\n${err.stack}` : String(err),
+    );
+    return;
+  }
+
+  try {
+    const startedAt = Date.now();
     await store.appendMessage({
       conversationId,
       role: "assistant",
@@ -259,7 +354,35 @@ export async function persistAnalysisArtifacts(
         taskId: session.id,
       },
     });
+    console.log(
+      `[history][debug] persistArtifacts OK: cid=${conversationId} taskId=${session.id} ` +
+        `durationMs=${Date.now() - startedAt}`,
+    );
   } catch (err) {
+    const e = err as any;
+    console.warn(`[history][debug] persistArtifacts appendMessage FAILED:`);
+    console.warn(`  cid=${conversationId} taskId=${session.id}`);
+    console.warn(`  error.name=${e?.name}`);
+    console.warn(`  error.message=${e?.message}`);
+    console.warn(`  error.code=${e?.code}`);
+    console.warn(`  error.statusCode=${e?.statusCode ?? e?.status}`);
+    if (e?.cause !== undefined) {
+      try {
+        console.warn(`  error.cause=${JSON.stringify(e.cause, null, 2)}`);
+      } catch {
+        console.warn(`  error.cause (non-serializable)=`, e.cause);
+      }
+    }
+    if (e?.response) {
+      try {
+        console.warn(`  error.response=${JSON.stringify(e.response, null, 2)}`);
+      } catch {
+        console.warn(`  error.response (non-serializable)=`, e.response);
+      }
+    }
+    if (e?.stack) {
+      console.warn(`  error.stack=\n${e.stack}`);
+    }
     console.warn(
       "[history] persistAnalysisArtifacts failed:",
       err instanceof Error ? err.message : String(err),

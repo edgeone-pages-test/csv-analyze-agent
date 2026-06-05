@@ -181,7 +181,7 @@ function AppInner() {
         restore(snap);
         // If session is still running / pending, continue subscribing to SSE
         if (snap.status === "running" || snap.status === "uploaded") {
-          connect(snap.taskId);
+          connect(snap.taskId, conversationIdRef.current);
         }
       } catch (e) {
         // eslint-disable-next-line no-console
@@ -209,11 +209,19 @@ function AppInner() {
     async (f: File) => {
       const result: UploadResponse = await uploadCsv(f, conversationIdRef.current);
       setUpload(result);
-      connect(result.taskId);
       setCancelPhase("running");
       const opts = { chartsOnly, demoMode: true };
       lastOptsRef.current = opts;
+      // Order matters: kick off the analyze run first so its short request
+      // releases the runtime's active-run slot, then open the long-lived
+      // SSE stream. If we open the stream first it occupies the
+      // conversationId's active-run slot for the whole run, and the
+      // subsequent /analyze (action=start) hits the runtime's
+      // AGENT_CONFLICT_RUNNING (409) auto-conflict-guard. The backend's
+      // stream handler replays buffered events on subscribe, so there's
+      // no risk of missing the early ones during this small gap.
       await startAnalyze(result.taskId, opts, conversationIdRef.current);
+      connect(result.taskId, conversationIdRef.current);
     },
     [setUpload, connect, chartsOnly],
   );
@@ -233,7 +241,7 @@ function AppInner() {
     try {
       setCancelPhase("running");
       await startAnalyze(state.taskId, opts, conversationIdRef.current);
-      connect(state.taskId);
+      connect(state.taskId, conversationIdRef.current);
     } catch (e) {
       // eslint-disable-next-line no-console
       console.error("retry failed", e);
@@ -245,7 +253,7 @@ function AppInner() {
     setRerunning(true);
     try {
       await rerunInsights(state.taskId, {}, conversationIdRef.current);
-      connect(state.taskId);
+      connect(state.taskId, conversationIdRef.current);
     } catch (e) {
       // eslint-disable-next-line no-console
       console.error("rerun failed", e);
@@ -300,7 +308,7 @@ function AppInner() {
       setTaskIdInUrl(record.taskId);
 
       if (snap.status === "running" || snap.status === "uploaded") {
-        connect(snap.taskId);
+        connect(snap.taskId, conversationIdRef.current);
       }
     },
     [restore, connect],

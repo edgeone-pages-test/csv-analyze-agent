@@ -367,11 +367,20 @@ export async function fetchHistoryDetail(
 /**
  * Subscribe to SSE stream (uses fetch streaming instead of EventSource because EdgeOne doesn't support GET query params).
  * Returns unsubscribe function.
+/**
+ * Subscribe to the SSE stream for a task. Backend pushes `agent` / `chart` /
+ * `insight` / `done` / `error` events. Returns a close function.
  *
- * Note: SSE long connection does not carry conversation header to avoid EdgeOne runtime returning 409 on concurrent requests.
+ * NOTE: SSE must include `Markers-Conversation-Id` header — newer
+ * EdgeOne agents/ runtime rejects requests without it at the routing
+ * layer with `{code:"AGENT_CONVERSATION_ID_REQUIRED"}` (HTTP 400),
+ * before our handler ever runs. The runtime now uses (conversationId,
+ * runId) as the active-run key, so a long-lived stream and a short
+ * /analyze POST sharing the same conversationId no longer collide.
  */
 export function subscribeStream(
   taskId: string,
+  conversationId: string | undefined,
   onEvent: (evt: AgentEvent) => void,
   onError?: (err: Event | Error) => void,
 ): () => void {
@@ -381,7 +390,10 @@ export function subscribeStream(
     try {
       const res = await fetch("/analyze/stream", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...conversationHeaders(conversationId),
+        },
         body: JSON.stringify({ taskId }),
         signal: abortController.signal,
       });

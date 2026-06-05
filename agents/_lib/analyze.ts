@@ -188,6 +188,31 @@ export async function analyze(opts: AnalyzeOptions): Promise<AnalyzeResult> {
       },
     };
   } catch (err) {
+    // DEBUG: full dump of the analysis-level failure. The error event we emit
+    // to the frontend only carries `message`; this dump preserves the rest
+    // (subtype, stack, cause) so the dev-server console can show the real
+    // root cause instead of just the wrapped one-line message.
+    const e = err as any;
+    console.warn(`[analyze][debug] FAILED:`);
+    console.warn(`  taskId=${taskId}`);
+    console.warn(`  insightsOnly=${insightsOnly} chartsOnly=${chartsOnly}`);
+    console.warn(`  charts so far=${ctx.charts.length} insights so far=${ctx.insights.length}`);
+    console.warn(`  error.name=${e?.name}`);
+    console.warn(`  error.message=${e?.message}`);
+    console.warn(`  error.subtype=${e?.subtype}`);
+    console.warn(`  error.code=${e?.code}`);
+    console.warn(`  error.statusCode=${e?.statusCode ?? e?.status}`);
+    if (e?.cause !== undefined) {
+      try {
+        console.warn(`  error.cause=${JSON.stringify(e.cause, null, 2)}`);
+      } catch {
+        console.warn(`  error.cause (non-serializable)=`, e.cause);
+      }
+    }
+    if (e?.stack) {
+      console.warn(`  error.stack=\n${e.stack}`);
+    }
+
     ctx.emit?.({
       type: "error",
       message: err instanceof Error ? err.message : String(err),
@@ -475,6 +500,34 @@ async function runAgent(params: RunAgentParams): Promise<number | undefined> {
           // from hard execution errors and decide whether to degrade or fail.
           const detail =
             "error" in msg ? (msg as { error?: string }).error : undefined;
+
+          // DEBUG: dump the entire SDK result message so we can see what
+          // actually came back (most failure modes set fields beyond just
+          // subtype/error — e.g. .stop_reason, .num_turns, .session_id).
+          // Without this dump, the caller only sees a one-line wrapped Error
+          // and we lose the SDK-level diagnostics.
+          console.warn(
+            `[${params.role}-agent][debug] SDK result subtype=${msg.subtype}`,
+          );
+          try {
+            console.warn(
+              `[${params.role}-agent][debug] full result message:\n${JSON.stringify(msg, null, 2)}`,
+            );
+          } catch {
+            console.warn(
+              `[${params.role}-agent][debug] full result message (non-serializable):`,
+              msg,
+            );
+          }
+          console.warn(
+            `[${params.role}-agent][debug] inflight tool calls at failure:`,
+            Array.from(inflight.entries()).map(([id, m]) => ({
+              id,
+              name: m.name,
+              elapsedMs: Date.now() - m.startedAt,
+            })),
+          );
+
           const err = new Error(
             `${params.mcpName} ended abnormally: ${msg.subtype}${
               detail ? " — " + detail : ""

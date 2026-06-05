@@ -259,7 +259,7 @@ export interface UseAgentStream {
   state: AgentStreamState;
   setUpload: (u: UploadResponse) => void;
   restore: (snapshot: SessionSnapshot) => void;
-  connect: (taskId: string) => void;
+  connect: (taskId: string, conversationId?: string) => void;
   /** Close the SSE subscription without clearing state. */
   disconnect: () => void;
   reset: () => void;
@@ -277,10 +277,11 @@ export function useAgentStream(): UseAgentStream {
     dispatch({ kind: "restore", payload: snapshot });
   }, []);
 
-  const connect = useCallback((taskId: string) => {
+  const connect = useCallback((taskId: string, conversationId?: string) => {
     closeRef.current?.();
     closeRef.current = subscribeStream(
       taskId,
+      conversationId,
       (evt) => dispatch({ kind: "event", payload: evt }),
       () => {
         // EventSource auto-reconnects; only clean up on fatal errors
