@@ -23,6 +23,12 @@ interface AgentCanvasProps {
   state: AgentStreamState;
   onReset: () => void;
   /**
+   * Conversation ID — passed down to ChartCard so that its lazy /static
+   * SVG fetch can include Markers-Conversation-Id (required by EdgeOne
+   * agents/ runtime).
+   */
+  conversationId: string;
+  /**
    * When true, the run was aborted by the user. We freeze any live
    * scanning/forging animations — the underlying agent stream may have
    * been disconnected before emitting the events that would normally end
@@ -31,7 +37,7 @@ interface AgentCanvasProps {
   cancelled?: boolean;
 }
 
-export function AgentCanvas({ phase, state, onReset, cancelled = false }: AgentCanvasProps) {
+export function AgentCanvas({ phase, state, onReset, conversationId, cancelled = false }: AgentCanvasProps) {
   const { t } = useT();
   const { upload, charts, insights, done } = state;
   const summary = insights.find((i) => i.kind === "summary");
@@ -120,7 +126,7 @@ export function AgentCanvas({ phase, state, onReset, cancelled = false }: AgentC
                 (ins) => ins.chartId === c.id,
               );
               return (
-                <ChartCard key={c.id} chart={c} index={i}>
+                <ChartCard key={c.id} chart={c} index={i} conversationId={conversationId}>
                   {chartInsights.map((ins, j) => {
                     const globalIdx = perChart.indexOf(ins);
                     const isLive = globalIdx === liveIdx && !done;

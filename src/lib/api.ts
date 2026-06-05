@@ -477,15 +477,23 @@ function fnv1a(s: string): string {
 }
 
 /**
- * Manually trigger file download (POST to get file content then create blob URL)
+ * Manually trigger file download (POST to get file content then create blob URL).
+ *
+ * Carries Markers-Conversation-Id (via conversationHeaders) because /analyze/download
+ * lives under agents/ — the EdgeOne agents runtime rejects any agents/* request
+ * lacking that header at the routing layer with 400 before the handler runs.
  */
 export async function downloadReport(
   taskId: string,
   kind: "charts" | "insight" | "merged" | "html",
+  conversationId: string,
 ): Promise<void> {
   const res = await fetch("/analyze/download", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...conversationHeaders(conversationId),
+    },
     body: JSON.stringify({ taskId, kind }),
   });
   if (!res.ok) throw new Error(`download failed: ${res.status}`);
@@ -503,9 +511,13 @@ export async function downloadReport(
 
 /**
  * Fetch an SVG's text content.
- * svgUrl format: "{taskId}/{relPath}" (injected by backend dispatch)
+ * svgUrl format: "{taskId}/{relPath}" (injected by backend dispatch).
+ *
+ * /static lives under agents/, so the EdgeOne agents runtime requires
+ * Markers-Conversation-Id on every request — without it the platform
+ * rejects with 400 before the handler runs.
  */
-export async function fetchSvg(svgUrl: string): Promise<string> {
+export async function fetchSvg(svgUrl: string, conversationId: string): Promise<string> {
   const slashIdx = svgUrl.indexOf("/");
   if (slashIdx === -1) throw new Error(`invalid svgUrl: ${svgUrl}`);
   const taskId = svgUrl.slice(0, slashIdx);
@@ -513,7 +525,10 @@ export async function fetchSvg(svgUrl: string): Promise<string> {
 
   const res = await fetch("/static", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...conversationHeaders(conversationId),
+    },
     body: JSON.stringify({ taskId, path: filePath }),
   });
   if (!res.ok) throw new Error(`svg fetch ${res.status}`);

@@ -11,12 +11,18 @@ import styles from "./ChartCard.module.css";
 interface ChartCardProps {
   chart: ChartMeta;
   index: number;
+  /**
+   * Conversation ID required by the EdgeOne agents/ runtime when this
+   * card lazily loads its SVG via /static. If `svgContent` is supplied
+   * (history view), no network call is made and conversationId is unused.
+   */
+  conversationId?: string;
   /** Directly pass SVG string (history report mode), bypassing the network request */
   svgContent?: string;
   children?: React.ReactNode;
 }
 
-export function ChartCard({ chart, index, svgContent, children }: ChartCardProps) {
+export function ChartCard({ chart, index, conversationId, svgContent, children }: ChartCardProps) {
   const [svg, setSvg] = useState<string>("");
   const [err, setErr] = useState<string | null>(null);
 
@@ -31,7 +37,11 @@ export function ChartCard({ chart, index, svgContent, children }: ChartCardProps
       setErr("missing svg url");
       return;
     }
-    fetchSvg(url)
+    if (!conversationId) {
+      setErr("missing conversationId for /static fetch");
+      return;
+    }
+    fetchSvg(url, conversationId)
       .then((s) => {
         if (!cancelled) setSvg(s);
       })
@@ -41,7 +51,7 @@ export function ChartCard({ chart, index, svgContent, children }: ChartCardProps
     return () => {
       cancelled = true;
     };
-  }, [chart.svgUrl, svgContent]);
+  }, [chart.svgUrl, svgContent, conversationId]);
 
   const handleDownload = useCallback(() => {
     if (!svg) return;

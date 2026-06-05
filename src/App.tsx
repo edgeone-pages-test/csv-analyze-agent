@@ -448,6 +448,7 @@ function AppInner() {
             <ReportActions
               compact
               taskId={state.taskId}
+              conversationId={conversationIdRef.current}
               charts={state.charts.length}
               insights={state.insights.length}
               costUsd={state.cost.total}
@@ -583,6 +584,7 @@ function AppInner() {
           phase={state.phase}
           state={state}
           onReset={handleReset}
+          conversationId={conversationIdRef.current}
           cancelled={cancelPhase !== "running"}
         />
       </main>

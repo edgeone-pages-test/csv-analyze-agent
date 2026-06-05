@@ -9,6 +9,12 @@ import { useT } from "../i18n";
 
 interface ReportActionsProps {
   taskId: string;
+  /**
+   * Required by EdgeOne agents/ runtime: every agents/* request (including
+   * /analyze/download) must carry Markers-Conversation-Id, otherwise the
+   * platform rejects with 400 before the handler runs.
+   */
+  conversationId: string;
   charts: number;
   insights: number;
   costUsd: number;
@@ -24,6 +30,7 @@ interface ReportActionsProps {
 
 export function ReportActions({
   taskId,
+  conversationId,
   charts,
   insights,
   costUsd,
@@ -49,11 +56,11 @@ export function ReportActions({
 
   const handleDownload = useCallback(
     (kind: "charts" | "insight" | "merged" | "html") => {
-      downloadReport(taskId, kind).catch((e) =>
+      downloadReport(taskId, kind, conversationId).catch((e) =>
         console.error("download failed", e),
       );
     },
-    [taskId],
+    [taskId, conversationId],
   );
 
   return (
