@@ -324,12 +324,10 @@ export async function fetchHistoryDetail(
  * Subscribe to the SSE stream for a task. Backend pushes `agent` / `chart` /
  * `insight` / `done` / `error` events. Returns a close function.
  *
- * NOTE: SSE must include `Markers-Conversation-Id` header — newer
+ * NOTE: SSE must include `Markers-Conversation-Id` header — the
  * EdgeOne agents/ runtime rejects requests without it at the routing
  * layer with `{code:"AGENT_CONVERSATION_ID_REQUIRED"}` (HTTP 400),
- * before our handler ever runs. The runtime now uses (conversationId,
- * runId) as the active-run key, so a long-lived stream and a short
- * /analyze POST sharing the same conversationId no longer collide.
+ * before our handler ever runs.
  */
 export function subscribeStream(
   taskId: string,
