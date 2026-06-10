@@ -1,12 +1,28 @@
 /**
  * ChartCard: a single chart card.
- * Fetches SVG from the backend and inlines it with dangerouslySetInnerHTML.
+ *
+ * Renders the SVG produced by the Chart Agent (Vega-Lite spec → backend
+ * vega.View.toSVG()). Even though SVG comes from our own server, the
+ * spec that produced it is LLM-controlled and could in theory smuggle
+ * <script> / event handlers / foreignObject through prompt injection or
+ * a future vega CVE. We sanitize with DOMPurify before injecting and
+ * pin the namespace to SVG so HTML elements can't slip in.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import DOMPurify from "dompurify";
 import type { ChartMeta } from "../types";
 import { fetchSvg } from "../lib/api";
 import styles from "./ChartCard.module.css";
+
+/** DOMPurify config — SVG-only, no scripts, no event handlers. */
+const SVG_SANITIZE_CONFIG: Parameters<typeof DOMPurify.sanitize>[1] = {
+  USE_PROFILES: { svg: true, svgFilters: true },
+  // Belt-and-braces: even with the SVG profile, explicitly forbid the few
+  // tags/attrs that have historically been used for in-SVG XSS.
+  FORBID_TAGS: ["script", "foreignObject"],
+  FORBID_ATTR: ["onload", "onerror", "onclick", "onmouseover"],
+};
 
 interface ChartCardProps {
   chart: ChartMeta;
@@ -25,6 +41,17 @@ interface ChartCardProps {
 export function ChartCard({ chart, index, conversationId, svgContent, children }: ChartCardProps) {
   const [svg, setSvg] = useState<string>("");
   const [err, setErr] = useState<string | null>(null);
+
+  /**
+   * Sanitized SVG, recomputed only when the raw `svg` string changes.
+   * DOMPurify with the svg profile strips <script>, event handlers,
+   * <foreignObject>, javascript: URLs, etc. while preserving valid
+   * Vega-rendered chart content.
+   */
+  const safeSvg = useMemo(() => {
+    if (!svg) return "";
+    return DOMPurify.sanitize(svg, SVG_SANITIZE_CONFIG) as string;
+  }, [svg]);
 
   useEffect(() => {
     if (svgContent) {
@@ -54,8 +81,8 @@ export function ChartCard({ chart, index, conversationId, svgContent, children }
   }, [chart.svgUrl, svgContent, conversationId]);
 
   const handleDownload = useCallback(() => {
-    if (!svg) return;
-    const blob = new Blob([svg], { type: "image/svg+xml" });
+    if (!safeSvg) return;
+    const blob = new Blob([safeSvg], { type: "image/svg+xml" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -64,7 +91,7 @@ export function ChartCard({ chart, index, conversationId, svgContent, children }
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, [svg, chart.id]);
+  }, [safeSvg, chart.id]);
 
   return (
     <motion.article
@@ -96,7 +123,7 @@ export function ChartCard({ chart, index, conversationId, svgContent, children }
       {svg ? (
         <div
           className={styles.svg}
-          dangerouslySetInnerHTML={{ __html: svg }}
+          dangerouslySetInnerHTML={{ __html: safeSvg }}
         />
       ) : (
         <div className={styles.svg}>
