@@ -20,9 +20,6 @@ export async function onRequest(context: any) {
   if (sessionOrError instanceof Response) return sessionOrError;
   const s = sessionOrError;
 
-  if (s.status === "running") {
-    return errorResponse("a run is already in progress", 409);
-  }
   if (s.status === "uploaded") {
     return errorResponse("run /analyze (action=start) first to generate charts");
   }
